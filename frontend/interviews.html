@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <aside class="sidebar">
     <div class="sidebar-logo">
         <div class="sidebar-logo-text">Hiring MS</div>
@@ -17,9 +16,14 @@
         <span class="nav-label">Navigation</span>
         <a href="index.html"        class="nav-item">Dashboard</a>
         <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="resumes.html"      class="nav-item">Resumes</a>
         <a href="jobs.html"         class="nav-item">Job Postings</a>
         <a href="applications.html" class="nav-item">Applications</a>
         <a href="interviews.html"   class="nav-item active">Interviews</a>
+        <a href="interviewers.html" class="nav-item">Interviewers</a>
+        <a href="offers.html"       class="nav-item">Offers</a>
+        <a href="decisions.html"    class="nav-item">Hiring Decisions</a>
+        <a href="companies.html"    class="nav-item">Companies</a>
     </nav>
     <div class="sidebar-footer">DB Lab Project</div>
 </aside>
@@ -28,49 +32,151 @@
     <div class="page-header">
         <div class="page-header-left">
             <h1>Interviews</h1>
-            <p>All scheduled and completed interviews</p>
+            <p>Schedule and track all interviews — Phone, Tech and Panel</p>
         </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Schedule Interview</button>
     </div>
-
     <div class="card">
-        <div class="card-header">
-            <h2>Interview Log</h2>
-        </div>
-        <div id="interviews-table">
-            <div class="loading">Fetching data</div>
-        </div>
+        <div class="card-header"><h2>Interview Log</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
     </div>
 </main>
 
+<!-- Add Interview Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Schedule Interview</div>
+        <div class="modal-subtitle">Select a type — the form will update accordingly.</div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Interview ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 4">
+            </div>
+            <div class="form-group">
+                <label>Application ID</label>
+                <input type="number" id="f-appid" placeholder="e.g. 2">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Interviewer ID</label>
+                <input type="number" id="f-ivid" placeholder="e.g. 1">
+            </div>
+            <div class="form-group">
+                <label>Interview Type</label>
+                <select id="f-type" onchange="toggleSubtype()">
+                    <option value="PHONE">Phone Screen</option>
+                    <option value="TECH">Tech Interview</option>
+                    <option value="PANEL">Panel Interview</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- PHONE subtype field -->
+        <div class="form-group" id="field-phone">
+            <label>Duration (minutes)</label>
+            <input type="number" id="f-duration" placeholder="e.g. 30">
+        </div>
+
+        <!-- TECH subtype field -->
+        <div class="form-group" id="field-tech" style="display:none">
+            <label>Platform</label>
+            <input type="text" id="f-platform" placeholder="e.g. HackerRank, CoderPad">
+        </div>
+
+        <!-- PANEL subtype field -->
+        <div class="form-group" id="field-panel" style="display:none">
+            <label>Panel Size</label>
+            <input type="number" id="f-panelsize" placeholder="e.g. 3">
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addInterview()">Schedule</button>
+        </div>
+    </div>
+</div>
+
 <script src="app.js"></script>
 <script>
-    async function loadInterviews() {
+    // Show only the relevant subtype field based on selected type
+    function toggleSubtype() {
+        const type = document.getElementById('f-type').value;
+        document.getElementById('field-phone').style.display = type === 'PHONE' ? 'block' : 'none';
+        document.getElementById('field-tech').style.display  = type === 'TECH'  ? 'block' : 'none';
+        document.getElementById('field-panel').style.display = type === 'PANEL' ? 'block' : 'none';
+    }
+
+    async function load() {
         const data = await get('/api/interviews');
-        const el = document.getElementById('interviews-table');
+        const el = document.getElementById('table-body');
         if (!data || data.length === 0) {
-            el.innerHTML = '<div class="empty"><div class="empty-title">No interviews found</div><div class="empty-desc">Interviews will appear here once scheduled.</div></div>';
+            el.innerHTML = '<div class="empty"><div class="empty-title">No interviews scheduled</div><div class="empty-desc">Schedule an interview to get started.</div></div>';
             return;
         }
         const rows = data.map(i => `
             <tr>
-                <td>${i.INTERVIEW_ID ?? i.interview_id}</td>
-                <td>${i.CANDIDATE_NAME ?? i.candidate_name}</td>
+                <td>${i.INTERVIEW_ID     ?? i.interview_id}</td>
+                <td>${i.CANDIDATE_NAME   ?? i.candidate_name}</td>
+                <td>${i.JOB_TITLE        ?? i.job_title}</td>
                 <td>${badge(i.INTERVIEW_TYPE ?? i.interview_type)}</td>
                 <td>${i.INTERVIEWER_NAME ?? i.interviewer_name}</td>
-                <td>${i.COMPANY_NAME ?? i.company_name}</td>
+                <td>${i.INTERVIEWER_TITLE ?? i.interviewer_title ?? '—'}</td>
+                <td>${i.COMPANY_NAME     ?? i.company_name}</td>
                 <td>${badge(i.APPLICATION_STATUS ?? i.application_status)}</td>
             </tr>`).join('');
-        el.innerHTML = `
-            <table>
-                <thead><tr>
-                    <th>ID</th><th>Candidate</th><th>Type</th>
-                    <th>Interviewer</th><th>Company</th><th>App Status</th>
-                </tr></thead>
-                <tbody>${rows}</tbody>
-            </table>`;
+        el.innerHTML = `<table>
+            <thead><tr>
+                <th>ID</th><th>Candidate</th><th>Job Title</th><th>Type</th>
+                <th>Interviewer</th><th>Title</th><th>Company</th><th>App Status</th>
+            </tr></thead>
+            <tbody>${rows}</tbody></table>`;
     }
 
-    loadInterviews();
+    async function addInterview() {
+        const id     = document.getElementById('f-id').value;
+        const appid  = document.getElementById('f-appid').value;
+        const ivid   = document.getElementById('f-ivid').value;
+        const type   = document.getElementById('f-type').value;
+
+        if (!id || !appid || !ivid) {
+            showToast('Interview ID, Application ID and Interviewer ID are required', 'error');
+            return;
+        }
+
+        // Step 1: Insert into INTERVIEW supertype
+        const superRes = await post('/api/interviews', { interview_id: id, application_id: appid, interviewer_id: ivid, interview_type: type });
+        if (!superRes?.message) {
+            showToast(superRes?.error || 'Failed to create interview', 'error');
+            return;
+        }
+
+        // Step 2: Insert into the correct subtype table
+        let subtypeRes;
+        if (type === 'PHONE') {
+            const duration = document.getElementById('f-duration').value;
+            subtypeRes = await post('/api/interviews/phone', { interview_id: id, duration_mins: duration });
+        } else if (type === 'TECH') {
+            const platform = document.getElementById('f-platform').value;
+            subtypeRes = await post('/api/interviews/tech', { interview_id: id, platform });
+        } else if (type === 'PANEL') {
+            const panel_size = document.getElementById('f-panelsize').value;
+            subtypeRes = await post('/api/interviews/panel', { interview_id: id, panel_size });
+        }
+
+        if (!subtypeRes?.message) {
+            showToast(subtypeRes?.error || 'Interview created but subtype insert failed', 'error');
+            return;
+        }
+
+        showToast('Interview scheduled successfully');
+        closeModal('addModal');
+        load();
+    }
+
+    load();
 </script>
 </body>
 </html>

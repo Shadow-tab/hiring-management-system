@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interviewers — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="resumes.html"      class="nav-item">Resumes</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+        <a href="interviewers.html" class="nav-item active">Interviewers</a>
+        <a href="offers.html"       class="nav-item">Offers</a>
+        <a href="decisions.html"    class="nav-item">Hiring Decisions</a>
+        <a href="companies.html"    class="nav-item">Companies</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Interviewers</h1>
+            <p>Company employees who conduct interviews</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Interviewer</button>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>All Interviewers</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add Interviewer</div>
+        <div class="modal-subtitle">Must belong to an existing company.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Interviewer ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 5">
+            </div>
+            <div class="form-group">
+                <label>Company ID</label>
+                <input type="number" id="f-company" placeholder="e.g. 1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="f-name" placeholder="e.g. Ali Hassan">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="f-email" placeholder="ali@company.com">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="f-dept" placeholder="e.g. Engineering">
+            </div>
+            <div class="form-group">
+                <label>Job Title</label>
+                <input type="text" id="f-title" placeholder="e.g. Senior Engineer">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addInterviewer()">Add</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    async function load() {
+        const data = await get('/api/interviewers');
+        const el = document.getElementById('table-body');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No interviewers found</div><div class="empty-desc">Add an interviewer to get started.</div></div>';
+            return;
+        }
+        const rows = data.map(i => `
+            <tr>
+                <td>${i.INTERVIEWER_ID ?? i.interviewer_id}</td>
+                <td>${i.NAME ?? i.name}</td>
+                <td>${i.EMAIL ?? i.email}</td>
+                <td>${i.DEPARTMENT ?? i.department ?? '—'}</td>
+                <td>${i.JOB_TITLE ?? i.job_title ?? '—'}</td>
+                <td>${i.COMPANY_NAME ?? i.company_name}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteRow(${i.INTERVIEWER_ID ?? i.interviewer_id})">Delete</button></td>
+            </tr>`).join('');
+        el.innerHTML = `<table>
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Job Title</th><th>Company</th><th>Action</th></tr></thead>
+            <tbody>${rows}</tbody></table>`;
+    }
+
+    async function addInterviewer() {
+        const body = {
+            interviewer_id: document.getElementById('f-id').value,
+            name:           document.getElementById('f-name').value,
+            email:          document.getElementById('f-email').value,
+            department:     document.getElementById('f-dept').value,
+            job_title:      document.getElementById('f-title').value,
+            company_id:     document.getElementById('f-company').value
+        };
+        if (!body.interviewer_id || !body.name || !body.email || !body.company_id) {
+            showToast('ID, name, email and company ID are required', 'error'); return;
+        }
+        const res = await post('/api/interviewers', body);
+        if (res?.message) { showToast('Interviewer added'); closeModal('addModal'); load(); }
+        else showToast(res?.error || 'Something went wrong', 'error');
+    }
+
+    async function deleteRow(id) {
+        if (!confirm('Delete this interviewer?')) return;
+        const res = await del(`/api/interviewers/${id}`);
+        if (res?.message) { showToast('Deleted'); load(); }
+        else showToast(res?.error || 'Delete failed — interviewer may have active interviews', 'error');
+    }
+
+    load();
+</script>
+</body>
+</html>

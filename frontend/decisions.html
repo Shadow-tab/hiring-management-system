@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hiring Decisions — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="resumes.html"      class="nav-item">Resumes</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+        <a href="interviewers.html" class="nav-item">Interviewers</a>
+        <a href="offers.html"       class="nav-item">Offers</a>
+        <a href="decisions.html"    class="nav-item active">Hiring Decisions</a>
+        <a href="companies.html"    class="nav-item">Companies</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Hiring Decisions</h1>
+            <p>Final outcomes — informed by offers, resulting from applications</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Decision</button>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>All Decisions</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add Hiring Decision</div>
+        <div class="modal-subtitle">Record the final decision for an application.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Decision ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 3">
+            </div>
+            <div class="form-group">
+                <label>Application ID</label>
+                <input type="number" id="f-appid" placeholder="e.g. 2">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Offer ID</label>
+                <input type="number" id="f-offerid" placeholder="e.g. 1">
+            </div>
+            <div class="form-group">
+                <label>Decision Date</label>
+                <input type="date" id="f-date">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Outcome</label>
+                <select id="f-outcome">
+                    <option value="Hired">Hired</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Waitlisted">Waitlisted</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="f-status">
+                    <option value="Final">Final</option>
+                    <option value="Pending">Pending</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Rationale</label>
+            <textarea id="f-rationale" placeholder="Reason for this decision..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addDecision()">Add Decision</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    function fmt(v) {
+        if (!v) return '—';
+        return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    async function load() {
+        const data = await get('/api/decisions');
+        const el = document.getElementById('table-body');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No decisions yet</div><div class="empty-desc">Hiring decisions will appear here once added.</div></div>';
+            return;
+        }
+        const rows = data.map(d => `
+            <tr>
+                <td>${d.DECISION_ID ?? d.decision_id}</td>
+                <td>${d.CANDIDATE_NAME ?? d.candidate_name}</td>
+                <td>${d.JOB_TITLE ?? d.job_title}</td>
+                <td>${badge(d.OUTCOME ?? d.outcome)}</td>
+                <td>${fmt(d.DECISION_DATE ?? d.decision_date)}</td>
+                <td>${d.RATIONALE ?? d.rationale ?? '—'}</td>
+                <td>${badge(d.STATUS ?? d.status)}</td>
+            </tr>`).join('');
+        el.innerHTML = `<table>
+            <thead><tr>
+                <th>ID</th><th>Candidate</th><th>Job Title</th>
+                <th>Outcome</th><th>Decision Date</th><th>Rationale</th><th>Status</th>
+            </tr></thead>
+            <tbody>${rows}</tbody></table>`;
+    }
+
+    async function addDecision() {
+        const body = {
+            decision_id:    document.getElementById('f-id').value,
+            application_id: document.getElementById('f-appid').value,
+            offer_id:       document.getElementById('f-offerid').value,
+            decision_date:  document.getElementById('f-date').value,
+            outcome:        document.getElementById('f-outcome').value,
+            status:         document.getElementById('f-status').value,
+            rationale:      document.getElementById('f-rationale').value
+        };
+        if (!body.decision_id || !body.application_id || !body.offer_id) {
+            showToast('Decision ID, Application ID and Offer ID are required', 'error'); return;
+        }
+        const res = await post('/api/decisions', body);
+        if (res?.message) { showToast('Decision added'); closeModal('addModal'); load(); }
+        else showToast(res?.error || 'Something went wrong', 'error');
+    }
+
+    load();
+</script>
+</body>
+</html>

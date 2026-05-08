@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumes — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="resumes.html"      class="nav-item active">Resumes</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+        <a href="interviewers.html" class="nav-item">Interviewers</a>
+        <a href="offers.html"       class="nav-item">Offers</a>
+        <a href="decisions.html"    class="nav-item">Hiring Decisions</a>
+        <a href="companies.html"    class="nav-item">Companies</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Resumes</h1>
+            <p>All candidate resumes — owned by candidates, attached to applications</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Resume</button>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>All Resumes</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add Resume</div>
+        <div class="modal-subtitle">Link a resume to an existing candidate.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Resume ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 7">
+            </div>
+            <div class="form-group">
+                <label>Candidate ID</label>
+                <input type="number" id="f-cand" placeholder="e.g. 1">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Version Label</label>
+                <input type="text" id="f-version" placeholder="e.g. v1, v2, Final">
+            </div>
+            <div class="form-group">
+                <label>File URL</label>
+                <input type="text" id="f-url" placeholder="files/resume.pdf">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Summary</label>
+            <textarea id="f-summary" placeholder="Brief professional summary..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addResume()">Add Resume</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    function fmt(v) {
+        if (!v) return '—';
+        return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    async function load() {
+        const data = await get('/api/resumes');
+        const el = document.getElementById('table-body');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No resumes found</div><div class="empty-desc">Add a resume to get started.</div></div>';
+            return;
+        }
+        const rows = data.map(r => `
+            <tr>
+                <td>${r.RESUME_ID ?? r.resume_id}</td>
+                <td>${r.CANDIDATE_NAME ?? r.candidate_name}</td>
+                <td>${r.VERSION_LABEL ?? r.version_label ?? '—'}</td>
+                <td>${r.FILE_URL ?? r.file_url ?? '—'}</td>
+                <td>${r.SUMMARY ?? r.summary ?? '—'}</td>
+                <td>${fmt(r.UPLOAD_DATE ?? r.upload_date)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteRow(${r.RESUME_ID ?? r.resume_id})">Delete</button></td>
+            </tr>`).join('');
+        el.innerHTML = `<table>
+            <thead><tr><th>ID</th><th>Candidate</th><th>Version</th><th>File URL</th><th>Summary</th><th>Upload Date</th><th>Action</th></tr></thead>
+            <tbody>${rows}</tbody></table>`;
+    }
+
+    async function addResume() {
+        const body = {
+            resume_id:     document.getElementById('f-id').value,
+            candidate_id:  document.getElementById('f-cand').value,
+            version_label: document.getElementById('f-version').value,
+            file_url:      document.getElementById('f-url').value,
+            summary:       document.getElementById('f-summary').value
+        };
+        if (!body.resume_id || !body.candidate_id) {
+            showToast('Resume ID and Candidate ID are required', 'error'); return;
+        }
+        const res = await post('/api/resumes', body);
+        if (res?.message) { showToast('Resume added'); closeModal('addModal'); load(); }
+        else showToast(res?.error || 'Something went wrong', 'error');
+    }
+
+    async function deleteRow(id) {
+        if (!confirm('Delete this resume?')) return;
+        const res = await del(`/api/resumes/${id}`);
+        if (res?.message) { showToast('Deleted'); load(); }
+        else showToast(res?.error || 'Delete failed — resume may be attached to an application', 'error');
+    }
+
+    load();
+</script>
+</body>
+</html>

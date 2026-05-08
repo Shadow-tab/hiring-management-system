@@ -15,11 +15,16 @@
     </div>
     <nav class="sidebar-nav">
         <span class="nav-label">Navigation</span>
-        <a href="index.html"        class="nav-item">Dashboard</a>
-        <a href="candidates.html"   class="nav-item">Candidates</a>
-        <a href="jobs.html"         class="nav-item active">Job Postings</a>
+        <a href="index.html" class="nav-item">Dashboard</a>
+        <a href="candidates.html" class="nav-item">Candidates</a>
+        <a href="resumes.html" class="nav-item">Resumes</a>
+        <a href="jobs.html" class="nav-item active">Job Postings</a>
         <a href="applications.html" class="nav-item">Applications</a>
-        <a href="interviews.html"   class="nav-item">Interviews</a>
+        <a href="interviews.html" class="nav-item">Interviews</a>
+        <a href="interviewers.html" class="nav-item">Interviewers</a>
+        <a href="offers.html" class="nav-item">Offers</a>
+        <a href="decisions.html" class="nav-item">Hiring Decisions</a>
+        <a href="companies.html" class="nav-item">Companies</a>
     </nav>
     <div class="sidebar-footer">DB Lab Project</div>
 </aside>
@@ -30,17 +35,86 @@
             <h1>Job Postings</h1>
             <p>All active and closed positions</p>
         </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Job Posting</button>
     </div>
 
     <div class="card">
-        <div class="card-header">
-            <h2>All Positions</h2>
-        </div>
-        <div id="jobs-table">
-            <div class="loading">Fetching data</div>
-        </div>
+        <div class="card-header"><h2>All Positions</h2></div>
+        <div id="jobs-table"><div class="loading">Fetching data</div></div>
     </div>
 </main>
+
+<!-- Add Job Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add Job Posting</div>
+        <div class="modal-subtitle">Fill in the position details below.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Job ID</label>
+                <input type="number" id="f-jobid" placeholder="e.g. 5">
+            </div>
+            <div class="form-group">
+                <label>Company ID</label>
+                <input type="number" id="f-companyid" placeholder="e.g. 1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Job Title</label>
+            <input type="text" id="f-title" placeholder="e.g. Backend Developer">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="f-dept" placeholder="e.g. Engineering">
+            </div>
+            <div class="form-group">
+                <label>Employment Type</label>
+                <select id="f-emptype">
+                    <option value="Full-Time">Full-Time</option>
+                    <option value="Part-Time">Part-Time</option>
+                    <option value="Contract">Contract</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Posted Date</label>
+                <input type="date" id="f-posted">
+            </div>
+            <div class="form-group">
+                <label>Closing Date</label>
+                <input type="date" id="f-closing">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Salary Range</label>
+                <input type="text" id="f-salary" placeholder="e.g. 80000-120000">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="f-status">
+                    <option value="Open">Open</option>
+                    <option value="Closed">Closed</option>
+                    <option value="On Hold">On Hold</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Required Skills</label>
+            <input type="text" id="f-skills" placeholder="e.g. Node.js, SQL, REST APIs">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="f-desc" placeholder="Describe the role..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addJob()">Add Posting</button>
+        </div>
+    </div>
+</div>
 
 <script src="app.js"></script>
 <script>
@@ -53,7 +127,7 @@
         const data = await get('/api/jobs/all');
         const el = document.getElementById('jobs-table');
         if (!data || data.length === 0) {
-            el.innerHTML = '<div class="empty"><div class="empty-title">No job postings found</div><div class="empty-desc">Job postings will appear here once added.</div></div>';
+            el.innerHTML = '<div class="empty"><div class="empty-title">No job postings found</div><div class="empty-desc">Add a job posting to get started.</div></div>';
             return;
         }
         const rows = data.map(j => `
@@ -66,15 +140,50 @@
                 <td>${j.SALARY_RANGE ?? j.salary_range ?? '—'}</td>
                 <td>${fmt(j.CLOSING_DATE ?? j.closing_date)}</td>
                 <td>${badge(j.STATUS ?? j.status)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteJob(${j.JOB_ID ?? j.job_id})">Delete</button></td>
             </tr>`).join('');
         el.innerHTML = `
             <table>
                 <thead><tr>
                     <th>ID</th><th>Title</th><th>Company</th><th>Department</th>
-                    <th>Type</th><th>Salary Range</th><th>Closing Date</th><th>Status</th>
+                    <th>Type</th><th>Salary Range</th><th>Closing Date</th><th>Status</th><th>Action</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
+    }
+
+    async function addJob() {
+        const body = {
+            job_id:         document.getElementById('f-jobid').value,
+            company_id:     document.getElementById('f-companyid').value,
+            title:          document.getElementById('f-title').value,
+            department:     document.getElementById('f-dept').value,
+            emp_type:       document.getElementById('f-emptype').value,
+            posted_date:    document.getElementById('f-posted').value,
+            closing_date:   document.getElementById('f-closing').value,
+            salary_range:   document.getElementById('f-salary').value,
+            status:         document.getElementById('f-status').value,
+            required_skills:document.getElementById('f-skills').value,
+            description:    document.getElementById('f-desc').value
+        };
+        if (!body.job_id || !body.title || !body.company_id) {
+            showToast('Job ID, title and company ID are required', 'error'); return;
+        }
+        const res = await post('/api/jobs', body);
+        if (res?.message) {
+            showToast('Job posting added');
+            closeModal('addModal');
+            loadJobs();
+        } else {
+            showToast(res?.error || 'Something went wrong', 'error');
+        }
+    }
+
+    async function deleteJob(id) {
+        if (!confirm('Delete this job posting?')) return;
+        const res = await del(`/api/jobs/${id}`);
+        if (res?.message) { showToast('Job posting deleted'); loadJobs(); }
+        else showToast(res?.error || 'Delete failed', 'error');
     }
 
     loadJobs();

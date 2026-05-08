@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Companies — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html" class="nav-item">Dashboard</a>
+        <a href="candidates.html" class="nav-item">Candidates</a>
+        <a href="resumes.html" class="nav-item">Resumes</a>
+        <a href="jobs.html" class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html" class="nav-item">Interviews</a>
+        <a href="interviewers.html" class="nav-item">Interviewers</a>
+        <a href="offers.html" class="nav-item">Offers</a>
+        <a href="decisions.html" class="nav-item">Hiring Decisions</a>
+        <a href="companies.html" class="nav-item active">Companies</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Companies</h1>
+            <p>Manage all hiring companies</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Company</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2>All Companies</h2></div>
+        <div id="companies-table"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<!-- Add Company Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add Company</div>
+        <div class="modal-subtitle">Fill in the company details below.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Company ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 4">
+            </div>
+            <div class="form-group">
+                <label>Industry</label>
+                <input type="text" id="f-industry" placeholder="e.g. Software">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Company Name</label>
+            <input type="text" id="f-name" placeholder="e.g. TechNova Solutions">
+        </div>
+        <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="f-location" placeholder="e.g. Lahore, Pakistan">
+        </div>
+        <div class="form-group">
+            <label>Website</label>
+            <input type="text" id="f-website" placeholder="e.g. www.company.com">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addCompany()">Add Company</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    async function loadCompanies() {
+        const data = await get('/api/companies');
+        const el = document.getElementById('companies-table');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No companies found</div><div class="empty-desc">Add a company to get started.</div></div>';
+            return;
+        }
+        const rows = data.map(c => `
+            <tr>
+                <td>${c.COMPANY_ID ?? c.company_id}</td>
+                <td>${c.NAME ?? c.name}</td>
+                <td>${c.LOCATION ?? c.location ?? '—'}</td>
+                <td>${c.WEBSITE ?? c.website ?? '—'}</td>
+                <td>${c.INDUSTRY ?? c.industry ?? '—'}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteCompany(${c.COMPANY_ID ?? c.company_id})">Delete</button></td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Name</th><th>Location</th>
+                    <th>Website</th><th>Industry</th><th>Action</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    async function addCompany() {
+        const body = {
+            company_id: document.getElementById('f-id').value,
+            name:       document.getElementById('f-name').value,
+            location:   document.getElementById('f-location').value,
+            website:    document.getElementById('f-website').value,
+            industry:   document.getElementById('f-industry').value
+        };
+        if (!body.company_id || !body.name) {
+            showToast('Company ID and name are required', 'error'); return;
+        }
+        const res = await post('/api/companies', body);
+        if (res?.message) {
+            showToast('Company added');
+            closeModal('addModal');
+            loadCompanies();
+        } else {
+            showToast(res?.error || 'Something went wrong', 'error');
+        }
+    }
+
+    async function deleteCompany(id) {
+        if (!confirm('Delete this company? This will fail if it has jobs or interviewers linked.')) return;
+        const res = await del(`/api/companies/${id}`);
+        if (res?.message) { showToast('Company deleted'); loadCompanies(); }
+        else showToast(res?.error || 'Delete failed — remove linked jobs/interviewers first', 'error');
+    }
+
+    loadCompanies();
+</script>
+</body>
+</html>
