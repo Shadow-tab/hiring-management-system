@@ -110,15 +110,28 @@ app.post('/api/companies', async (req, res) => {
     }
 });
 
-// DELETE company
+// DELETE company — cleans up all linked data first
 app.delete('/api/companies/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `DELETE FROM COMPANY WHERE company_id = :id`,
-            { id: req.params.id }
-        );
+        const id = req.params.id;
+        // Clean up jobs posted by this company (full chain)
+        await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
+        await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
+        await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
+        // Interviews conducted by this company interviewers
+        await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id)`, { id });
+        await conn.execute(`DELETE FROM INTERVIEW WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id IN (SELECT job_id FROM JOB_POSTING WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM HIRING_DECISION WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id IN (SELECT job_id FROM JOB_POSTING WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM OFFER WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id IN (SELECT job_id FROM JOB_POSTING WHERE company_id = :id))`, { id });
+        await conn.execute(`DELETE FROM APPLICATION WHERE job_id IN (SELECT job_id FROM JOB_POSTING WHERE company_id = :id)`, { id });
+        await conn.execute(`DELETE FROM JOB_POSTING WHERE company_id = :id`, { id });
+        await conn.execute(`DELETE FROM INTERVIEWER WHERE company_id = :id`, { id });
+        await conn.execute(`DELETE FROM COMPANY WHERE company_id = :id`, { id });
         await conn.commit();
         res.json({ message: 'Company deleted successfully' });
     } catch (err) {
@@ -196,15 +209,20 @@ app.post('/api/jobs', async (req, res) => {
     }
 });
 
-// DELETE job posting
+// DELETE job posting — cleans up full child chain first
 app.delete('/api/jobs/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `DELETE FROM JOB_POSTING WHERE job_id = :id`,
-            { id: req.params.id }
-        );
+        const id = req.params.id;
+        await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id WHERE A.job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id WHERE A.job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id WHERE A.job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM INTERVIEW WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM HIRING_DECISION WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM OFFER WHERE application_id IN (SELECT application_id FROM APPLICATION WHERE job_id = :id)`, { id });
+        await conn.execute(`DELETE FROM APPLICATION WHERE job_id = :id`, { id });
+        await conn.execute(`DELETE FROM JOB_POSTING WHERE job_id = :id`, { id });
         await conn.commit();
         res.json({ message: 'Job posting deleted successfully' });
     } catch (err) {
@@ -386,10 +404,13 @@ app.delete('/api/interviewers/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `DELETE FROM INTERVIEWER WHERE interviewer_id = :id`,
-            { id: req.params.id }
-        );
+        const id = req.params.id;
+        // Delete interview subtypes then interviews conducted by this interviewer
+        await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
+        await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
+        await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
+        await conn.execute(`DELETE FROM INTERVIEW WHERE interviewer_id = :id`, { id });
+        await conn.execute(`DELETE FROM INTERVIEWER WHERE interviewer_id = :id`, { id });
         await conn.commit();
         res.json({ message: 'Interviewer deleted successfully' });
     } catch (err) { res.status(500).json({ error: err.message }); }
