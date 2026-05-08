@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item active">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Dashboard</h1>
+            <p>Overview of your hiring pipeline</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Candidates</div>
+            <div class="stat-value" id="stat-candidates">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Open Jobs</div>
+            <div class="stat-value" id="stat-jobs">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Applications</div>
+            <div class="stat-value" id="stat-apps">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Interviews</div>
+            <div class="stat-value" id="stat-interviews">—</div>
+            <div class="stat-divider"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Recent Applications</h2>
+            <a href="applications.html" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div id="recent-apps">
+            <div class="loading">Fetching data</div>
+        </div>
+    </div>
+</main>
+
+<script src="app.js"></script>
+<script>
+    async function loadStats() {
+        const data = await get('/api/stats');
+        if (!data) return;
+        document.getElementById('stat-candidates').textContent = data.TOTAL_CANDIDATES  ?? data.total_candidates  ?? '—';
+        document.getElementById('stat-jobs').textContent       = data.OPEN_JOBS         ?? data.open_jobs         ?? '—';
+        document.getElementById('stat-apps').textContent       = data.TOTAL_APPLICATIONS ?? data.total_applications ?? '—';
+        document.getElementById('stat-interviews').textContent = data.TOTAL_INTERVIEWS   ?? data.total_interviews   ?? '—';
+    }
+
+    async function loadRecentApps() {
+        const data = await get('/api/applications');
+        const el = document.getElementById('recent-apps');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div><div class="empty-desc">Applications will appear here once submitted.</div></div>';
+            return;
+        }
+        const rows = data.slice(0, 5).map(a => `
+            <tr>
+                <td>${a.CANDIDATE_NAME ?? a.candidate_name}</td>
+                <td>${a.JOB_TITLE ?? a.job_title}</td>
+                <td>${a.COMPANY_NAME ?? a.company_name}</td>
+                <td>${fmt(a.APPLIED_DATE ?? a.applied_date)}</td>
+                <td>${badge(a.APPLICATION_STATUS ?? a.application_status)}</td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>Candidate</th><th>Job Title</th><th>Company</th>
+                    <th>Applied</th><th>Status</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    function fmt(v) {
+        if (!v) return '—';
+        return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    loadStats();
+    loadRecentApps();
+</script>
+</body>
+</html>

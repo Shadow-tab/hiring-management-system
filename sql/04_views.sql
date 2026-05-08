@@ -1,18 +1,14 @@
 -- ============================================================
 -- FILE: 04_views.sql
 -- RUN AS: hiring_app
--- PURPOSE: Create saved/reusable views for the application
--- WHAT IS A VIEW: Think of it as a saved SELECT query with a name.
---   You query it exactly like a table: SELECT * FROM view_name;
---   It doesn't store data — it runs the query fresh each time.
+-- PURPOSE: Saved views used by backend and frontend
 -- ============================================================
-
 
 -- ------------------------------------------------------------
 -- VIEW 1: Full Application Pipeline
--- PURPOSE: Single view that shows every application with all
---   related info — candidate, job, company in one place.
---   The frontend and backend will use this view heavily.
+-- PURPOSE: Complete view of every application with candidate,
+--          job, company and attached resume info
+-- USED BY: Backend /api/applications endpoint
 -- ------------------------------------------------------------
 CREATE OR REPLACE VIEW VW_APPLICATION_PIPELINE AS
 SELECT
@@ -25,20 +21,23 @@ SELECT
     J.emp_type,
     J.salary_range,
     CO.name                              AS company_name,
+    R.file_url                           AS resume_file,
+    R.version_label                      AS resume_version,
     A.applied_date,
     A.status                             AS application_status,
     A.days_in_pipeline
 FROM
-    APPLICATION A
-    JOIN CANDIDATE  C   ON A.candidate_id = C.candidate_id
-    JOIN JOB_POSTING J  ON A.job_id       = J.job_id
-    JOIN COMPANY    CO  ON J.company_id   = CO.company_id;
+    APPLICATION  A
+    JOIN CANDIDATE   C   ON A.candidate_id = C.candidate_id
+    JOIN JOB_POSTING J   ON A.job_id       = J.job_id
+    JOIN COMPANY     CO  ON J.company_id   = CO.company_id
+    LEFT JOIN RESUME R   ON A.resume_id    = R.resume_id;
 
 
 -- ------------------------------------------------------------
 -- VIEW 2: Open Jobs with Company Info
--- PURPOSE: Show all currently open job postings with their
---   company details. Used for the job listings page.
+-- PURPOSE: All currently open positions with company details
+-- USED BY: Backend /api/jobs endpoint
 -- ------------------------------------------------------------
 CREATE OR REPLACE VIEW VW_OPEN_JOBS AS
 SELECT
@@ -50,8 +49,8 @@ SELECT
     J.required_skills,
     J.posted_date,
     J.closing_date,
-    CO.name         AS company_name,
-    CO.location     AS company_location,
+    CO.name        AS company_name,
+    CO.location    AS company_location,
     CO.industry
 FROM
     JOB_POSTING J
@@ -61,7 +60,7 @@ WHERE
 
 
 -- ============================================================
--- TEST YOUR VIEWS — run these after creating them:
--- ============================================================
+-- TEST:
 -- SELECT * FROM VW_APPLICATION_PIPELINE;
 -- SELECT * FROM VW_OPEN_JOBS;
+-- ============================================================

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidates — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item active">Candidates</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Candidates</h1>
+            <p>Manage all registered candidates</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">Add Candidate</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>All Candidates</h2>
+        </div>
+        <div id="candidates-table">
+            <div class="loading">Fetching data</div>
+        </div>
+    </div>
+</main>
+
+<!-- Add Candidate Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Add New Candidate</div>
+        <div class="modal-subtitle">Fill in the candidate's details below.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Candidate ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 6">
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" id="f-phone" placeholder="03XX-XXXXXXX">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="f-first" placeholder="First name">
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="f-last" placeholder="Last name">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="f-email" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="f-location" placeholder="City, Country">
+        </div>
+        <div class="form-group">
+            <label>Skills</label>
+            <input type="text" id="f-skills" placeholder="e.g. Node.js, SQL, Python">
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addCandidate()">Add Candidate</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    async function loadCandidates() {
+        const data = await get('/api/candidates');
+        const el = document.getElementById('candidates-table');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No candidates found</div><div class="empty-desc">Add a candidate to get started.</div></div>';
+            return;
+        }
+        const rows = data.map(c => `
+            <tr>
+                <td>${c.CANDIDATE_ID ?? c.candidate_id}</td>
+                <td>${c.FIRST_NAME ?? c.first_name} ${c.LAST_NAME ?? c.last_name}</td>
+                <td>${c.EMAIL ?? c.email}</td>
+                <td>${c.PHONE ?? c.phone ?? '—'}</td>
+                <td>${c.LOCATION ?? c.location ?? '—'}</td>
+                <td>${c.SKILLS ?? c.skills ?? '—'}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm"
+                        onclick="deleteCandidate(${c.CANDIDATE_ID ?? c.candidate_id})">
+                        Delete
+                    </button>
+                </td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Full Name</th><th>Email</th>
+                    <th>Phone</th><th>Location</th><th>Skills</th><th>Action</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    async function addCandidate() {
+        const body = {
+            id:         document.getElementById('f-id').value,
+            first_name: document.getElementById('f-first').value,
+            last_name:  document.getElementById('f-last').value,
+            email:      document.getElementById('f-email').value,
+            phone:      document.getElementById('f-phone').value,
+            location:   document.getElementById('f-location').value,
+            skills:     document.getElementById('f-skills').value
+        };
+        if (!body.id || !body.first_name || !body.email) {
+            showToast('ID, first name and email are required', 'error'); return;
+        }
+        const res = await post('/api/candidates', body);
+        if (res?.message) {
+            showToast('Candidate added successfully');
+            closeModal('addModal');
+            loadCandidates();
+        } else {
+            showToast(res?.error || 'Something went wrong', 'error');
+        }
+    }
+
+    async function deleteCandidate(id) {
+        if (!confirm('Delete this candidate and all their applications?')) return;
+        const res = await del(`/api/candidates/${id}`);
+        if (res?.message) { showToast('Candidate deleted'); loadCandidates(); }
+        else showToast(res?.error || 'Delete failed', 'error');
+    }
+
+    loadCandidates();
+</script>
+</body>
+</html>

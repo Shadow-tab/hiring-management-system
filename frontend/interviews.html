@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interviews — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item active">Interviews</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Interviews</h1>
+            <p>All scheduled and completed interviews</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Interview Log</h2>
+        </div>
+        <div id="interviews-table">
+            <div class="loading">Fetching data</div>
+        </div>
+    </div>
+</main>
+
+<script src="app.js"></script>
+<script>
+    async function loadInterviews() {
+        const data = await get('/api/interviews');
+        const el = document.getElementById('interviews-table');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No interviews found</div><div class="empty-desc">Interviews will appear here once scheduled.</div></div>';
+            return;
+        }
+        const rows = data.map(i => `
+            <tr>
+                <td>${i.INTERVIEW_ID ?? i.interview_id}</td>
+                <td>${i.CANDIDATE_NAME ?? i.candidate_name}</td>
+                <td>${badge(i.INTERVIEW_TYPE ?? i.interview_type)}</td>
+                <td>${i.INTERVIEWER_NAME ?? i.interviewer_name}</td>
+                <td>${i.COMPANY_NAME ?? i.company_name}</td>
+                <td>${badge(i.APPLICATION_STATUS ?? i.application_status)}</td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Candidate</th><th>Type</th>
+                    <th>Interviewer</th><th>Company</th><th>App Status</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    loadInterviews();
+</script>
+</body>
+</html>

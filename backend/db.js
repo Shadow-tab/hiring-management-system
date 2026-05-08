@@ -36,9 +36,9 @@ async function initialize() {
             poolMax:          10,   // maximum 10 connections at once
             poolIncrement:    1     // add 1 connection when needed
         });
-        console.log('✅ Oracle connection pool created successfully');
+        console.log('Oracle connection pool created successfully');
     } catch (err) {
-        console.error('❌ Failed to create Oracle connection pool:', err);
+        console.error('Failed to create Oracle connection pool:', err);
         process.exit(1); // stop the server if DB fails
     }
 }

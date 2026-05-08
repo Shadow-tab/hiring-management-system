@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Postings — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="jobs.html"         class="nav-item active">Job Postings</a>
+        <a href="applications.html" class="nav-item">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Job Postings</h1>
+            <p>All active and closed positions</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>All Positions</h2>
+        </div>
+        <div id="jobs-table">
+            <div class="loading">Fetching data</div>
+        </div>
+    </div>
+</main>
+
+<script src="app.js"></script>
+<script>
+    function fmt(v) {
+        if (!v) return '—';
+        return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    async function loadJobs() {
+        const data = await get('/api/jobs/all');
+        const el = document.getElementById('jobs-table');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No job postings found</div><div class="empty-desc">Job postings will appear here once added.</div></div>';
+            return;
+        }
+        const rows = data.map(j => `
+            <tr>
+                <td>${j.JOB_ID ?? j.job_id}</td>
+                <td>${j.TITLE ?? j.title}</td>
+                <td>${j.COMPANY_NAME ?? j.company_name}</td>
+                <td>${j.DEPARTMENT ?? j.department ?? '—'}</td>
+                <td>${j.EMP_TYPE ?? j.emp_type ?? '—'}</td>
+                <td>${j.SALARY_RANGE ?? j.salary_range ?? '—'}</td>
+                <td>${fmt(j.CLOSING_DATE ?? j.closing_date)}</td>
+                <td>${badge(j.STATUS ?? j.status)}</td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Title</th><th>Company</th><th>Department</th>
+                    <th>Type</th><th>Salary Range</th><th>Closing Date</th><th>Status</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    loadJobs();
+</script>
+</body>
+</html>

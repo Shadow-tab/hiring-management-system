@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Management System</div>
+    </div>
+    <nav class="sidebar-nav">
+        <span class="nav-label">Navigation</span>
+        <a href="index.html"        class="nav-item">Dashboard</a>
+        <a href="candidates.html"   class="nav-item">Candidates</a>
+        <a href="jobs.html"         class="nav-item">Job Postings</a>
+        <a href="applications.html" class="nav-item active">Applications</a>
+        <a href="interviews.html"   class="nav-item">Interviews</a>
+    </nav>
+    <div class="sidebar-footer">DB Lab Project</div>
+</aside>
+
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Applications</h1>
+            <p>Track and manage the hiring pipeline</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addModal')">New Application</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Pipeline</h2>
+        </div>
+        <div id="apps-table">
+            <div class="loading">Fetching data</div>
+        </div>
+    </div>
+</main>
+
+<!-- Submit Application Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Submit Application</div>
+        <div class="modal-subtitle">Link a candidate to an open job posting.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Application ID</label>
+                <input type="number" id="f-appid" placeholder="e.g. 6">
+            </div>
+            <div class="form-group">
+                <label>Candidate ID</label>
+                <input type="number" id="f-candid" placeholder="e.g. 1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Job ID</label>
+            <input type="number" id="f-jobid" placeholder="e.g. 1">
+        </div>
+        <div class="form-group">
+            <label>Resume ID</label>
+            <input type="number" id="f-resumeid" placeholder="e.g. 1">
+        </div>
+        <div class="form-group">
+            <label>Cover Letter</label>
+            <textarea id="f-cover" placeholder="Write a brief cover letter..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitApplication()">Submit</button>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal-overlay" id="statusModal">
+    <div class="modal">
+        <div class="modal-title">Update Status</div>
+        <div class="modal-subtitle">Move this application through the pipeline.</div>
+        <input type="hidden" id="status-app-id">
+        <div class="form-group">
+            <label>New Status</label>
+            <select id="f-status">
+                <option value="Applied">Applied</option>
+                <option value="Screening">Screening</option>
+                <option value="Interview">Interview</option>
+                <option value="Offered">Offered</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('statusModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="updateStatus()">Update</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+    function fmt(v) {
+        if (!v) return '—';
+        return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    async function loadApplications() {
+        const data = await get('/api/applications');
+        const el = document.getElementById('apps-table');
+        if (!data || data.length === 0) {
+            el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div><div class="empty-desc">Submit an application to get started.</div></div>';
+            return;
+        }
+        const rows = data.map(a => {
+            const id     = a.APPLICATION_ID ?? a.application_id;
+            const status = a.APPLICATION_STATUS ?? a.application_status;
+            return `
+            <tr>
+                <td>${id}</td>
+                <td>${a.CANDIDATE_NAME ?? a.candidate_name}</td>
+                <td>${a.JOB_TITLE ?? a.job_title}</td>
+                <td>${a.COMPANY_NAME ?? a.company_name}</td>
+                <td>${fmt(a.APPLIED_DATE ?? a.applied_date)}</td>
+                <td>${a.DAYS_IN_PIPELINE ?? a.days_in_pipeline ?? 0} days</td>
+                <td>${badge(status)}</td>
+                <td>
+                    <button class="btn btn-ghost btn-sm"
+                        onclick="openStatusModal(${id}, '${status}')">
+                        Update
+                    </button>
+                </td>
+            </tr>`;
+        }).join('');
+        el.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Candidate</th><th>Job Title</th><th>Company</th>
+                    <th>Applied</th><th>Pipeline</th><th>Status</th><th>Action</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    }
+
+    async function submitApplication() {
+        const body = {
+            app_id:       document.getElementById('f-appid').value,
+            candidate_id: document.getElementById('f-candid').value,
+            job_id:       document.getElementById('f-jobid').value,
+            resume_id:    document.getElementById('f-resumeid').value,
+            cover_letter: document.getElementById('f-cover').value
+        };
+        if (!body.app_id || !body.candidate_id || !body.job_id || !body.resume_id) {
+            showToast('Please fill all required fields', 'error'); return;
+        }
+        const res = await post('/api/applications', body);
+        if (res?.message) {
+            showToast('Application submitted');
+            closeModal('addModal');
+            loadApplications();
+        } else {
+            showToast(res?.error || 'Submission failed', 'error');
+        }
+    }
+
+    function openStatusModal(id, currentStatus) {
+        document.getElementById('status-app-id').value = id;
+        document.getElementById('f-status').value = currentStatus;
+        openModal('statusModal');
+    }
+
+    async function updateStatus() {
+        const id     = document.getElementById('status-app-id').value;
+        const status = document.getElementById('f-status').value;
+        const res = await put(`/api/applications/${id}/status`, { status });
+        if (res?.message) {
+            showToast('Status updated');
+            closeModal('statusModal');
+            loadApplications();
+        } else {
+            showToast(res?.error || 'Update failed', 'error');
+        }
+    }
+
+    loadApplications();
+</script>
+</body>
+</html>

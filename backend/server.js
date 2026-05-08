@@ -25,7 +25,7 @@ app.use(cors());
 // Simple route to confirm server is running
 // Visit http://localhost:3000/ in browser to test
 app.get('/', (req, res) => {
-    res.json({ message: 'System API is running.' });
+    res.json({ message: '✅ Hiring Management System API is running.' });
 });
 
 
@@ -206,19 +206,20 @@ app.get('/api/applications', async (req, res) => {
 
 // POST submit new application (calls stored procedure)
 // URL: POST /api/applications
-// BODY: { app_id, candidate_id, job_id, cover_letter }
+// BODY: { app_id, candidate_id, job_id, resume_id, cover_letter }
 app.post('/api/applications', async (req, res) => {
     let conn;
-    const { app_id, candidate_id, job_id, cover_letter } = req.body;
+    const { app_id, candidate_id, job_id, resume_id, cover_letter } = req.body;
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `BEGIN SP_SUBMIT_APPLICATION(:app_id, :cand_id, :job_id, :cover); END;`,
+            `BEGIN SP_SUBMIT_APPLICATION(:app_id, :cand_id, :job_id, :resume_id, :cover); END;`,
             {
-                app_id:  app_id,
-                cand_id: candidate_id,
-                job_id:  job_id,
-                cover:   cover_letter
+                app_id:     app_id,
+                cand_id:    candidate_id,
+                job_id:     job_id,
+                resume_id:  resume_id,
+                cover:      cover_letter
             }
         );
         await conn.commit();
@@ -320,7 +321,7 @@ app.get('/api/stats', async (req, res) => {
 async function startServer() {
     await db.initialize();     // connect to Oracle first
     app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
+        console.log(`🚀 Server running at http://localhost:${PORT}`);
     });
 }
 
