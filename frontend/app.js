@@ -8,7 +8,7 @@
 // ── API Base URL ─────────────────────────────────────────
 // During development this points to your local Node.js server
 // When deployed, change this to your Railway URL
-const API = 'http://localhost:3000';
+const API = 'https://hiring-management-system-production.up.railway.app';
 
 // ── Fetch Helper ─────────────────────────────────────────
 // Wraps fetch() so every page doesn't repeat error handling
