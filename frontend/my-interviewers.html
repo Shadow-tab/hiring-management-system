@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Interviewers — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Company Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>My Interviewers</h1>
+            <p>Employees who conduct interviews for your company</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Interviewers</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['COMPANY']);
+    if (user) {
+        buildSidebar('my-interviewers.html');
+        async function load() {
+            const data = await get(`/api/my/interviewers?company_id=${user.entity_id}`);
+            const el = document.getElementById('table-body');
+            if (!data || data.length === 0) { el.innerHTML = '<div class="empty"><div class="empty-title">No interviewers yet</div><div class="empty-desc">Interviewers who sign up with your company ID will appear here.</div></div>'; return; }
+            const rows = data.map(i => `<tr>
+                <td>${i.INTERVIEWER_ID ?? i.interviewer_id}</td>
+                <td>${i.NAME ?? i.name}</td>
+                <td>${i.EMAIL ?? i.email}</td>
+                <td>${i.DEPARTMENT ?? i.department ?? '—'}</td>
+                <td>${i.JOB_TITLE ?? i.job_title ?? '—'}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Job Title</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        load();
+    }
+</script>
+</body>
+</html>

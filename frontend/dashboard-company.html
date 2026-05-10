@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Dashboard — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Company Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 id="welcome-msg">Company Dashboard</h1>
+            <p>Manage your job postings and hiring pipeline</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">My Job Postings</div>
+            <div class="stat-value" id="stat-jobs">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Applications Received</div>
+            <div class="stat-value" id="stat-apps">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">My Interviewers</div>
+            <div class="stat-value" id="stat-interviewers">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Offers Made</div>
+            <div class="stat-value" id="stat-offers">—</div>
+            <div class="stat-divider"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Recent Applications</h2>
+            <a href="my-applications.html" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div id="apps-table"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['COMPANY']);
+    if (user) {
+        document.getElementById('welcome-msg').textContent = `Welcome, ${user.name}`;
+        buildSidebar('dashboard-company.html');
+
+        async function loadDashboard() {
+            const jobs         = await get(`/api/my/jobs?company_id=${user.entity_id}`);
+            const apps         = await get(`/api/my/company-applications?company_id=${user.entity_id}`);
+            const interviewers = await get(`/api/my/interviewers?company_id=${user.entity_id}`);
+            const offers       = await get(`/api/my/company-offers?company_id=${user.entity_id}`);
+
+            document.getElementById('stat-jobs').textContent         = jobs?.length ?? 0;
+            document.getElementById('stat-apps').textContent         = apps?.length ?? 0;
+            document.getElementById('stat-interviewers').textContent = interviewers?.length ?? 0;
+            document.getElementById('stat-offers').textContent       = offers?.length ?? 0;
+
+            const el = document.getElementById('apps-table');
+            if (!apps || apps.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div><div class="empty-desc">Applications will appear once candidates apply to your jobs.</div></div>';
+                return;
+            }
+            const rows = apps.slice(0,5).map(a => `<tr>
+                <td>${a.CANDIDATE_NAME ?? a.candidate_name}</td>
+                <td>${a.JOB_TITLE ?? a.job_title}</td>
+                <td>${badge(a.APPLICATION_STATUS ?? a.application_status)}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr><th>Candidate</th><th>Job Title</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        loadDashboard();
+    }
+</script>
+</body>
+</html>

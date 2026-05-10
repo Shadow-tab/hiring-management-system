@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interviewer Dashboard — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Interviewer Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 id="welcome-msg">Interviewer Dashboard</h1>
+            <p>Your assigned interviews and candidates</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Interviews</div>
+            <div class="stat-value" id="stat-interviews">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Candidates Interviewed</div>
+            <div class="stat-value" id="stat-candidates">—</div>
+            <div class="stat-divider"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h2>My Interviews</h2></div>
+        <div id="interviews-table"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['INTERVIEWER']);
+    if (user) {
+        document.getElementById('welcome-msg').textContent = `Welcome, ${user.name}`;
+        buildSidebar('dashboard-interviewer.html');
+
+        async function loadDashboard() {
+            const interviews = await get(`/api/my/interviewer-interviews?interviewer_id=${user.entity_id}`);
+            document.getElementById('stat-interviews').textContent = interviews?.length ?? 0;
+            const unique = new Set(interviews?.map(i => i.CANDIDATE_NAME ?? i.candidate_name));
+            document.getElementById('stat-candidates').textContent = unique.size;
+
+            const el = document.getElementById('interviews-table');
+            if (!interviews || interviews.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="empty-title">No interviews assigned</div><div class="empty-desc">Interviews assigned to you will appear here.</div></div>';
+                return;
+            }
+            const rows = interviews.map(i => `<tr>
+                <td>${i.INTERVIEW_ID ?? i.interview_id}</td>
+                <td>${i.CANDIDATE_NAME ?? i.candidate_name}</td>
+                <td>${i.JOB_TITLE ?? i.job_title}</td>
+                <td>${badge(i.INTERVIEW_TYPE ?? i.interview_type)}</td>
+                <td>${badge(i.APPLICATION_STATUS ?? i.application_status)}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Candidate</th><th>Job Title</th><th>Type</th><th>App Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        loadDashboard();
+    }
+</script>
+</body>
+</html>

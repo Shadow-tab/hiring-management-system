@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-wrap">
+    <div class="auth-left">
+        <div class="auth-brand">Hiring MS</div>
+        <div class="auth-tagline">
+            A complete hiring management system — from job postings to hiring decisions, all in one place.
+        </div>
+        <div class="auth-dots">
+            <div class="auth-dot active"></div>
+            <div class="auth-dot"></div>
+            <div class="auth-dot"></div>
+            <div class="auth-dot"></div>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-title">Sign in</div>
+        <div class="auth-sub">Enter your credentials to continue</div>
+
+        <div class="auth-error" id="error-msg"></div>
+
+        <label>Email Address</label>
+        <input type="email" id="f-email" placeholder="you@example.com">
+
+        <label>Password</label>
+        <input type="password" id="f-password" placeholder="Your password">
+
+        <button class="btn-auth" id="signin-btn" onclick="login()">
+            <span id="btn-text">Sign In</span>
+            <div class="btn-spinner" id="spinner"></div>
+        </button>
+
+        <div class="auth-footer">
+            No account? <a href="register.html">Sign up</a>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const existing = getUser();
+    if (existing) window.location.href = dashboardFor(existing.role);
+
+    async function login() {
+        const email    = document.getElementById('f-email').value.trim();
+        const password = document.getElementById('f-password').value;
+        const errEl    = document.getElementById('error-msg');
+        const btn      = document.getElementById('signin-btn');
+        const btnText  = document.getElementById('btn-text');
+        const spinner  = document.getElementById('spinner');
+
+        errEl.style.display = 'none';
+
+        if (!email || !password) {
+            errEl.textContent   = 'Please enter your email and password.';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        btnText.style.display = 'none';
+        spinner.style.display = 'block';
+        btn.disabled = true;
+
+        try {
+            const res  = await fetch(API + '/api/auth/login', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                errEl.textContent   = data.error || 'Login failed. Please try again.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            saveUser(data);
+            window.location.href = dashboardFor(data.role);
+
+        } catch (err) {
+            errEl.textContent   = 'Cannot connect to server. Make sure the backend is running on port 3000.';
+            errEl.style.display = 'block';
+        } finally {
+            btnText.style.display = 'block';
+            spinner.style.display = 'none';
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+</script>
+</body>
+</html>

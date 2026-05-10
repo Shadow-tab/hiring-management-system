@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Applications — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub"></div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 id="page-title">Applications</h1>
+            <p id="page-sub">Loading...</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Applications</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    // This page is shared by CANDIDATE, COMPANY, INTERVIEWER
+    // Each role sees different data
+    const user = requireAuth(['CANDIDATE', 'COMPANY', 'INTERVIEWER']);
+    if (user) {
+        buildSidebar('my-applications.html');
+        function fmt(v) { if (!v) return '—'; return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
+
+        async function load() {
+            const el = document.getElementById('table-body');
+            let data, rows;
+
+            if (user.role === 'CANDIDATE') {
+                document.getElementById('page-title').textContent = 'My Applications';
+                document.getElementById('page-sub').textContent   = 'Track your submitted applications';
+                document.querySelector('.sidebar-logo-sub').textContent = 'Candidate Portal';
+                data = await get(`/api/my/applications?candidate_id=${user.entity_id}`);
+                if (!data || data.length === 0) { el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div><div class="empty-desc">Browse jobs and apply to get started.</div></div>'; return; }
+                rows = data.map(a => `<tr>
+                    <td>${a.APPLICATION_ID ?? a.application_id}</td>
+                    <td>${a.JOB_TITLE ?? a.job_title}</td>
+                    <td>${a.COMPANY_NAME ?? a.company_name}</td>
+                    <td>${fmt(a.APPLIED_DATE ?? a.applied_date)}</td>
+                    <td>${a.DAYS_IN_PIPELINE ?? a.days_in_pipeline ?? 0} days</td>
+                    <td>${badge(a.APPLICATION_STATUS ?? a.application_status)}</td>
+                </tr>`).join('');
+                el.innerHTML = `<table><thead><tr><th>ID</th><th>Job</th><th>Company</th><th>Applied</th><th>Pipeline</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+            } else if (user.role === 'COMPANY') {
+                document.getElementById('page-title').textContent = 'Applications Received';
+                document.getElementById('page-sub').textContent   = 'Candidates who applied to your jobs';
+                document.querySelector('.sidebar-logo-sub').textContent = 'Company Portal';
+                data = await get(`/api/my/company-applications?company_id=${user.entity_id}`);
+                if (!data || data.length === 0) { el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div></div>'; return; }
+                rows = data.map(a => `<tr>
+                    <td>${a.APPLICATION_ID ?? a.application_id}</td>
+                    <td>${a.CANDIDATE_NAME ?? a.candidate_name}</td>
+                    <td>${a.JOB_TITLE ?? a.job_title}</td>
+                    <td>${fmt(a.APPLIED_DATE ?? a.applied_date)}</td>
+                    <td>${badge(a.APPLICATION_STATUS ?? a.application_status)}</td>
+                    <td>
+                        <button class="btn btn-ghost btn-sm" onclick="openStatusModal(${a.APPLICATION_ID ?? a.application_id}, '${a.APPLICATION_STATUS ?? a.application_status}')">Update</button>
+                    </td>
+                </tr>`).join('');
+                el.innerHTML = `<table><thead><tr><th>ID</th><th>Candidate</th><th>Job</th><th>Applied</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+            } else if (user.role === 'INTERVIEWER') {
+                document.getElementById('page-title').textContent = 'Applications';
+                document.getElementById('page-sub').textContent   = 'Applications for interviews you conduct';
+                document.querySelector('.sidebar-logo-sub').textContent = 'Interviewer Portal';
+                data = await get(`/api/my/interviewer-interviews?interviewer_id=${user.entity_id}`);
+                if (!data || data.length === 0) { el.innerHTML = '<div class="empty"><div class="empty-title">No interviews assigned yet</div></div>'; return; }
+                rows = data.map(i => `<tr>
+                    <td>${i.CANDIDATE_NAME ?? i.candidate_name}</td>
+                    <td>${i.JOB_TITLE ?? i.job_title}</td>
+                    <td>${badge(i.INTERVIEW_TYPE ?? i.interview_type)}</td>
+                    <td>${badge(i.APPLICATION_STATUS ?? i.application_status)}</td>
+                </tr>`).join('');
+                el.innerHTML = `<table><thead><tr><th>Candidate</th><th>Job</th><th>Interview Type</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+            }
+        }
+
+        // Status update modal for COMPANY role
+        function openStatusModal(id, current) {
+            document.getElementById('status-app-id').value = id;
+            document.getElementById('f-status').value = current;
+            openModal('statusModal');
+        }
+
+        async function updateStatus() {
+            const id     = document.getElementById('status-app-id').value;
+            const status = document.getElementById('f-status').value;
+            const res = await put(`/api/applications/${id}/status`, { status });
+            if (res?.message) { showToast('Status updated'); closeModal('statusModal'); load(); }
+            else showToast(res?.error || 'Failed', 'error');
+        }
+
+        load();
+    }
+</script>
+
+<!-- Status modal (only used by COMPANY role) -->
+<div class="modal-overlay" id="statusModal">
+    <div class="modal">
+        <div class="modal-title">Update Status</div>
+        <input type="hidden" id="status-app-id">
+        <div class="form-group">
+            <label>New Status</label>
+            <select id="f-status">
+                <option value="Applied">Applied</option>
+                <option value="Screening">Screening</option>
+                <option value="Interview">Interview</option>
+                <option value="Offered">Offered</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('statusModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="updateStatus()">Update</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>

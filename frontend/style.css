@@ -519,3 +519,229 @@ tbody tr:hover td { background: var(--surface2); }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
+
+
+/* ============================================================
+   AUTH PAGES — Login & Register
+   ============================================================ */
+
+.auth-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #0f0f13;
+    padding: 40px 24px;
+    box-sizing: border-box;
+    margin: 0;
+}
+
+.auth-wrap {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+/* ── Left branding panel ─────────────────────────────────── */
+.auth-left {
+    width: 280px;
+    flex-shrink: 0;
+    background: #1a1a2e;
+    padding: 56px 44px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.auth-brand {
+    font-family: var(--font-head);
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    margin-bottom: 14px;
+}
+
+.auth-tagline {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 300;
+    line-height: 1.8;
+}
+
+.auth-dots {
+    display: flex;
+    gap: 8px;
+    margin-top: 40px;
+}
+
+.auth-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+}
+
+.auth-dot.active { background: #6c63ff; }
+
+/* ── Right form panel ────────────────────────────────────── */
+.auth-right {
+    flex: 1;
+    background: #13131a;
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+}
+
+.auth-title {
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-weight: 600;
+    color: #e8e8f0;
+    margin-bottom: 6px;
+}
+
+.auth-sub {
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.28);
+    margin-bottom: 32px;
+    font-weight: 300;
+}
+
+/* ── Auth form inputs ────────────────────────────────────── */
+.auth-right label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.32);
+    margin-bottom: 6px;
+}
+
+.auth-right input,
+.auth-right select {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    color: #e8e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    width: 100%;
+    font-size: 13.5px;
+    outline: none;
+    font-family: var(--font-body);
+    margin-bottom: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, background 0.2s;
+    appearance: none;
+}
+
+.auth-right input::placeholder { color: rgba(255,255,255,0.18); }
+
+.auth-right input:focus,
+.auth-right select:focus {
+    border-color: #6c63ff;
+    background: rgba(108,99,255,0.06);
+}
+
+.auth-right select option { background: #1a1a2e; color: #e8e8f0; }
+
+.auth-right .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* ── Auth buttons ────────────────────────────────────────── */
+.btn-auth {
+    width: 100%;
+    padding: 11px;
+    background: #6c63ff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font-body);
+    margin-top: 6px;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.2px;
+}
+
+.btn-auth:hover   { background: #5a52e0; }
+.btn-auth:active  { transform: scale(0.99); }
+.btn-auth:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Auth footer link ────────────────────────────────────── */
+.auth-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.22);
+}
+
+.auth-footer a {
+    color: #6c63ff;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.auth-footer a:hover { text-decoration: underline; }
+
+/* ── Auth messages ───────────────────────────────────────── */
+.auth-error {
+    background: rgba(192,57,43,0.12);
+    border: 1px solid rgba(192,57,43,0.28);
+    color: #e74c3c;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    margin-bottom: 16px;
+    display: none;
+}
+
+.auth-success {
+    background: rgba(26,122,74,0.12);
+    border: 1px solid rgba(26,122,74,0.28);
+    color: #2ecc71;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    margin-bottom: 16px;
+    display: none;
+}
+
+/* ── Section divider inside register form ────────────────── */
+.auth-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.18);
+    margin: 20px 0 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Role extra fields toggle ────────────────────────────── */
+.role-fields         { display: none; }
+.role-fields.visible { display: block; }
+
+/* ── Loading spinner inside button ───────────────────────── */
+.btn-spinner {
+    display: none;
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin: 0 auto;
+}

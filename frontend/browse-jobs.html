@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Jobs — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Candidate Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Browse Jobs</h1>
+            <p>All open positions available to apply</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Open Positions</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<div class="modal-overlay" id="applyModal">
+    <div class="modal">
+        <div class="modal-title">Apply for Job</div>
+        <div class="modal-subtitle" id="apply-job-title"></div>
+        <input type="hidden" id="apply-job-id">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Application ID</label>
+                <input type="number" id="f-appid" placeholder="e.g. 6">
+            </div>
+            <div class="form-group">
+                <label>Resume ID</label>
+                <input type="number" id="f-resumeid" placeholder="e.g. 1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Cover Letter</label>
+            <textarea id="f-cover" placeholder="Write a brief cover letter..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('applyModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="applyJob()">Submit Application</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['CANDIDATE']);
+    if (user) {
+        buildSidebar('browse-jobs.html');
+        function fmt(v) { if (!v) return '—'; return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
+
+        async function load() {
+            const data = await get('/api/jobs');
+            const el = document.getElementById('table-body');
+            if (!data || data.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="empty-title">No open jobs</div><div class="empty-desc">Check back later for new positions.</div></div>';
+                return;
+            }
+            const rows = data.map(j => `<tr>
+                <td>${j.TITLE ?? j.title}</td>
+                <td>${j.COMPANY_NAME ?? j.company_name}</td>
+                <td>${j.DEPARTMENT ?? j.department ?? '—'}</td>
+                <td>${j.EMP_TYPE ?? j.emp_type ?? '—'}</td>
+                <td>${j.SALARY_RANGE ?? j.salary_range ?? '—'}</td>
+                <td>${fmt(j.CLOSING_DATE ?? j.closing_date)}</td>
+                <td><button class="btn btn-primary btn-sm" onclick="openApply(${j.JOB_ID ?? j.job_id}, '${j.TITLE ?? j.title}')">Apply</button></td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr>
+                <th>Title</th><th>Company</th><th>Department</th><th>Type</th><th>Salary</th><th>Closes</th><th>Action</th>
+            </tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        function openApply(jobId, title) {
+            document.getElementById('apply-job-id').value = jobId;
+            document.getElementById('apply-job-title').textContent = 'Applying for: ' + title;
+            openModal('applyModal');
+        }
+
+        async function applyJob() {
+            const body = {
+                app_id:       document.getElementById('f-appid').value,
+                candidate_id: user.entity_id,
+                job_id:       document.getElementById('apply-job-id').value,
+                resume_id:    document.getElementById('f-resumeid').value,
+                cover_letter: document.getElementById('f-cover').value
+            };
+            if (!body.app_id || !body.resume_id) { showToast('Application ID and Resume ID are required', 'error'); return; }
+            const res = await post('/api/applications', body);
+            if (res?.message) { showToast('Application submitted!'); closeModal('applyModal'); }
+            else showToast(res?.error || 'Failed to apply', 'error');
+        }
+
+        load();
+    }
+</script>
+</body>
+</html>

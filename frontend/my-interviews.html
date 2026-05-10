@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interviews — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub"></div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 id="page-title">Interviews</h1>
+            <p id="page-sub"></p>
+        </div>
+        <div id="add-btn"></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Interview Log</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+
+<!-- Schedule Interview Modal (Company only) -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-title">Schedule Interview</div>
+        <div class="modal-subtitle">Select a type — the form updates accordingly.</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Interview ID</label>
+                <input type="number" id="f-id" placeholder="e.g. 4">
+            </div>
+            <div class="form-group">
+                <label>Application ID</label>
+                <input type="number" id="f-appid" placeholder="e.g. 2">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Interviewer ID</label>
+                <input type="number" id="f-ivid" placeholder="e.g. 1">
+            </div>
+            <div class="form-group">
+                <label>Interview Type</label>
+                <select id="f-type" onchange="toggleSubtype()">
+                    <option value="PHONE">Phone Screen</option>
+                    <option value="TECH">Tech Interview</option>
+                    <option value="PANEL">Panel Interview</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group" id="field-phone"><label>Duration (minutes)</label><input type="number" id="f-duration" placeholder="e.g. 30"></div>
+        <div class="form-group" id="field-tech" style="display:none"><label>Platform</label><input type="text" id="f-platform" placeholder="e.g. HackerRank"></div>
+        <div class="form-group" id="field-panel" style="display:none"><label>Panel Size</label><input type="number" id="f-panelsize" placeholder="e.g. 3"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addInterview()">Schedule</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['COMPANY', 'INTERVIEWER']);
+    if (user) {
+        buildSidebar('my-interviews.html');
+
+        function toggleSubtype() {
+            const type = document.getElementById('f-type').value;
+            document.getElementById('field-phone').style.display = type === 'PHONE' ? 'block' : 'none';
+            document.getElementById('field-tech').style.display  = type === 'TECH'  ? 'block' : 'none';
+            document.getElementById('field-panel').style.display = type === 'PANEL' ? 'block' : 'none';
+        }
+
+        async function load() {
+            const el = document.getElementById('table-body');
+            let data;
+
+            if (user.role === 'COMPANY') {
+                document.getElementById('page-title').textContent = 'Interviews';
+                document.getElementById('page-sub').textContent   = 'Interviews scheduled for your job openings';
+                document.querySelector('.sidebar-logo-sub').textContent = 'Company Portal';
+                document.getElementById('add-btn').innerHTML = '<button class="btn btn-primary" onclick="openModal(\'addModal\')">Schedule Interview</button>';
+                data = await get(`/api/my/company-interviews?company_id=${user.entity_id}`);
+            } else {
+                document.getElementById('page-title').textContent = 'My Interviews';
+                document.getElementById('page-sub').textContent   = 'Interviews assigned to you';
+                document.querySelector('.sidebar-logo-sub').textContent = 'Interviewer Portal';
+                data = await get(`/api/my/interviewer-interviews?interviewer_id=${user.entity_id}`);
+            }
+
+            if (!data || data.length === 0) { el.innerHTML = '<div class="empty"><div class="empty-title">No interviews found</div></div>'; return; }
+            const rows = data.map(i => `<tr>
+                <td>${i.INTERVIEW_ID ?? i.interview_id}</td>
+                <td>${i.CANDIDATE_NAME ?? i.candidate_name}</td>
+                <td>${i.JOB_TITLE ?? i.job_title}</td>
+                <td>${badge(i.INTERVIEW_TYPE ?? i.interview_type)}</td>
+                <td>${i.INTERVIEWER_NAME ?? i.interviewer_name ?? '—'}</td>
+                <td>${badge(i.APPLICATION_STATUS ?? i.application_status)}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Candidate</th><th>Job</th><th>Type</th><th>Interviewer</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        async function addInterview() {
+            const id   = document.getElementById('f-id').value;
+            const appid = document.getElementById('f-appid').value;
+            const ivid  = document.getElementById('f-ivid').value;
+            const type  = document.getElementById('f-type').value;
+            if (!id || !appid || !ivid) { showToast('All fields are required', 'error'); return; }
+            const superRes = await post('/api/interviews', { interview_id: id, application_id: appid, interviewer_id: ivid, interview_type: type });
+            if (!superRes?.message) { showToast(superRes?.error || 'Failed', 'error'); return; }
+            let subtypeRes;
+            if (type === 'PHONE')  subtypeRes = await post('/api/interviews/phone', { interview_id: id, duration_mins: document.getElementById('f-duration').value });
+            if (type === 'TECH')   subtypeRes = await post('/api/interviews/tech',  { interview_id: id, platform: document.getElementById('f-platform').value });
+            if (type === 'PANEL')  subtypeRes = await post('/api/interviews/panel', { interview_id: id, panel_size: document.getElementById('f-panelsize').value });
+            if (subtypeRes?.message) { showToast('Interview scheduled'); closeModal('addModal'); load(); }
+            else showToast(subtypeRes?.error || 'Subtype insert failed', 'error');
+        }
+
+        load();
+    }
+</script>
+</body>
+</html>

@@ -14,7 +14,6 @@ require('dotenv').config();
 
 // Thin mode = no Oracle Instant Client needed
 // This works because your Oracle is in Docker locally
-//oracledb.initOracleClient(); 
 
 // How query results come back:
 // BY DEFAULT oracledb returns arrays like [[1, 'Bilal'], [2, 'Zara']]
@@ -32,13 +31,16 @@ async function initialize() {
             user:             process.env.DB_USER,
             password:         process.env.DB_PASSWORD,
             connectString:    process.env.DB_CONNECT_STRING,
-            poolMin:          2,    // always keep 2 connections open
-            poolMax:          10,   // maximum 10 connections at once
-            poolIncrement:    1     // add 1 connection when needed
+            poolMin:          1,
+            poolMax:          10,
+            poolIncrement:    1,
+            poolTimeout:      60,
+            queueTimeout:     10000,   // fail fast after 10s instead of 60s
+            poolPingInterval: 60
         });
-        console.log('Oracle connection pool created successfully');
+        console.log('✅ Oracle connection pool created successfully');
     } catch (err) {
-        console.error('Failed to create Oracle connection pool:', err);
+        console.error('❌ Failed to create Oracle connection pool:', err);
         process.exit(1); // stop the server if DB fails
     }
 }

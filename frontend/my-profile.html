@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Candidate Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>My Profile</h1>
+            <p>Your candidate information</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>Profile Details</h2></div>
+        <div id="profile-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['CANDIDATE']);
+    if (user) {
+        buildSidebar('my-profile.html');
+        async function load() {
+            const data = await get(`/api/candidates/${user.entity_id}`);
+            const el = document.getElementById('profile-body');
+            if (!data) { el.innerHTML = '<div class="empty"><div class="empty-title">Profile not found</div></div>'; return; }
+            el.innerHTML = `
+                <div class="card-body">
+                    <table>
+                        <tbody>
+                            <tr><td><strong>Full Name</strong></td><td>${data.FIRST_NAME ?? data.first_name} ${data.LAST_NAME ?? data.last_name}</td></tr>
+                            <tr><td><strong>Email</strong></td><td>${data.EMAIL ?? data.email}</td></tr>
+                            <tr><td><strong>Phone</strong></td><td>${data.PHONE ?? data.phone ?? '—'}</td></tr>
+                            <tr><td><strong>Location</strong></td><td>${data.LOCATION ?? data.location ?? '—'}</td></tr>
+                            <tr><td><strong>Skills</strong></td><td>${data.SKILLS ?? data.skills ?? '—'}</td></tr>
+                            <tr><td><strong>Registered</strong></td><td>${new Date(data.REG_DATE ?? data.reg_date).toLocaleDateString('en-GB')}</td></tr>
+                        </tbody>
+                    </table>
+                </div>`;
+        }
+        load();
+    }
+</script>
+</body>
+</html>

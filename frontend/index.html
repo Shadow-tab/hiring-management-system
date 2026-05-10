@@ -72,6 +72,7 @@
 </main>
 
 <script src="app.js"></script>
+<script src="auth.js"></script>
 <script>
     async function loadStats() {
         const data = await get('/api/stats');
@@ -112,8 +113,8 @@
         return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
     }
 
-    loadStats();
-    loadRecentApps();
+    const user = requireAuth(['ADMIN']);
+    if (user) { buildSidebar('index.html'); loadStats(); loadRecentApps(); }
 </script>
 </body>
 </html>

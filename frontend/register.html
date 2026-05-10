@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-wrap">
+    <div class="auth-left">
+        <div class="auth-brand">Hiring MS</div>
+        <div class="auth-tagline">
+            Join as a candidate, company or interviewer and get started in minutes.
+        </div>
+        <div class="auth-dots">
+            <div class="auth-dot active"></div>
+            <div class="auth-dot"></div>
+            <div class="auth-dot"></div>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-title">Create account</div>
+        <div class="auth-sub">Fill in your details to get started</div>
+
+        <div class="auth-error"   id="error-msg"></div>
+        <div class="auth-success" id="success-msg"></div>
+
+        <!-- Common fields -->
+        <label>Full Name</label>
+        <input type="text" id="f-name" placeholder="Your full name">
+
+        <label>Email Address</label>
+        <input type="email" id="f-email" placeholder="you@example.com">
+
+        <label>Password</label>
+        <input type="password" id="f-password" placeholder="Choose a password">
+
+        <label>I am signing up as</label>
+        <select id="f-role" onchange="toggleRoleFields()">
+            <option value="">— Select your role —</option>
+            <option value="CANDIDATE">Candidate</option>
+            <option value="COMPANY">Company</option>
+            <option value="INTERVIEWER">Interviewer</option>
+        </select>
+
+        <!-- CANDIDATE extra fields -->
+        <div class="role-fields" id="fields-candidate">
+            <div class="auth-section-label">Candidate Details</div>
+            <div class="form-row">
+                <div>
+                    <label>Phone</label>
+                    <input type="text" id="f-phone" placeholder="03XX-XXXXXXX">
+                </div>
+                <div>
+                    <label>Location</label>
+                    <input type="text" id="f-location" placeholder="City, Country">
+                </div>
+            </div>
+            <label>Skills</label>
+            <input type="text" id="f-skills" placeholder="e.g. Node.js, SQL, Python">
+        </div>
+
+        <!-- COMPANY extra fields -->
+        <div class="role-fields" id="fields-company">
+            <div class="auth-section-label">Company Details</div>
+            <label>Company Location</label>
+            <input type="text" id="f-co-location" placeholder="e.g. Lahore, Pakistan">
+            <div class="form-row">
+                <div>
+                    <label>Website</label>
+                    <input type="text" id="f-website" placeholder="www.company.com">
+                </div>
+                <div>
+                    <label>Industry</label>
+                    <input type="text" id="f-industry" placeholder="e.g. Software">
+                </div>
+            </div>
+        </div>
+
+        <!-- INTERVIEWER extra fields -->
+        <div class="role-fields" id="fields-interviewer">
+            <div class="auth-section-label">Interviewer Details</div>
+            <label>Company ID</label>
+            <input type="number" id="f-company-id" placeholder="ID of your company in the system">
+            <div class="form-row">
+                <div>
+                    <label>Department</label>
+                    <input type="text" id="f-dept" placeholder="e.g. Engineering">
+                </div>
+                <div>
+                    <label>Job Title</label>
+                    <input type="text" id="f-jobtitle" placeholder="e.g. Senior Engineer">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-auth" onclick="register()">Create Account</button>
+
+        <div class="auth-footer">
+            Already have an account? <a href="login.html">Sign in</a>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const existing = getUser();
+    if (existing) window.location.href = dashboardFor(existing.role);
+
+    function toggleRoleFields() {
+        const role = document.getElementById('f-role').value;
+        document.querySelectorAll('.role-fields').forEach(el => el.classList.remove('visible'));
+        if (role) document.getElementById(`fields-${role.toLowerCase()}`)?.classList.add('visible');
+    }
+
+    async function register() {
+        const errEl     = document.getElementById('error-msg');
+        const successEl = document.getElementById('success-msg');
+        errEl.style.display     = 'none';
+        successEl.style.display = 'none';
+
+        const role = document.getElementById('f-role').value;
+        const body = {
+            name:     document.getElementById('f-name').value.trim(),
+            email:    document.getElementById('f-email').value.trim(),
+            password: document.getElementById('f-password').value,
+            role
+        };
+
+        if (!body.name || !body.email || !body.password || !body.role) {
+            errEl.textContent   = 'Please fill in all required fields.';
+            errEl.style.display = 'block'; return;
+        }
+
+        if (role === 'CANDIDATE') {
+            body.phone    = document.getElementById('f-phone').value;
+            body.location = document.getElementById('f-location').value;
+            body.skills   = document.getElementById('f-skills').value;
+        }
+        if (role === 'COMPANY') {
+            body.location = document.getElementById('f-co-location').value;
+            body.website  = document.getElementById('f-website').value;
+            body.industry = document.getElementById('f-industry').value;
+        }
+        if (role === 'INTERVIEWER') {
+            body.company_id = document.getElementById('f-company-id').value;
+            body.department = document.getElementById('f-dept').value;
+            body.job_title  = document.getElementById('f-jobtitle').value;
+            if (!body.company_id) {
+                errEl.textContent   = 'Company ID is required for interviewer signup.';
+                errEl.style.display = 'block'; return;
+            }
+        }
+
+        try {
+            const res  = await fetch(API + '/api/auth/register', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(body)
+            });
+
+            let data = {};
+            try { data = await res.json(); } catch(e) {}
+
+            console.log('Register response:', res.status, data);
+
+            if (data.error) {
+                errEl.textContent   = data.error;
+                errEl.style.display = 'block'; return;
+            }
+
+            if (!res.ok) {
+                errEl.textContent   = 'Registration failed. Status: ' + res.status;
+                errEl.style.display = 'block'; return;
+            }
+
+            successEl.textContent   = 'Account created! Redirecting to login...';
+            successEl.style.display = 'block';
+            setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+
+        } catch (err) {
+            console.error('Register error:', err);
+            errEl.textContent   = 'Cannot connect to server. Make sure the backend is running on port 3000.';
+            errEl.style.display = 'block';
+        }
+    }
+</script>
+</body>
+</html>

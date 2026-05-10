@@ -35,6 +35,23 @@ app.get('/api/candidates', async (req, res) => {
     }
 });
 
+app.get('/api/candidates/:id', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT * FROM CANDIDATE WHERE candidate_id = :id`,
+            { id: req.params.id }
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Candidate not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (conn) await conn.close();
+    }
+});
+
 app.post('/api/candidates', async (req, res) => {
     let conn;
     const { id, first_name, last_name, email, phone, location, skills } = req.body;
@@ -53,7 +70,6 @@ app.post('/api/candidates', async (req, res) => {
     }
 });
 
-// FIX: delete now uses corrected procedure that handles FK chain properly
 app.delete('/api/candidates/:id', async (req, res) => {
     let conn;
     try {
@@ -80,9 +96,7 @@ app.get('/api/companies', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        const result = await conn.execute(
-            `SELECT * FROM COMPANY ORDER BY company_id`
-        );
+        const result = await conn.execute(`SELECT * FROM COMPANY ORDER BY company_id`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -91,15 +105,15 @@ app.get('/api/companies', async (req, res) => {
     }
 });
 
-// POST add new company
 app.post('/api/companies', async (req, res) => {
     let conn;
     const { company_id, name, location, website, industry } = req.body;
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO COMPANY VALUES (:cid, :name, :loc, :web, :ind)`,
-            { cid: company_id, name, loc: location, web: website, ind: industry }
+            `INSERT INTO COMPANY (company_id, name, location, website, industry)
+             VALUES (:p1, :p2, :p3, :p4, :p5)`,
+            { p1: company_id, p2: name, p3: location||null, p4: website||null, p5: industry||null }
         );
         await conn.commit();
         res.status(201).json({ message: 'Company added successfully' });
@@ -110,17 +124,14 @@ app.post('/api/companies', async (req, res) => {
     }
 });
 
-// DELETE company — cleans up all linked data first
 app.delete('/api/companies/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
         const id = req.params.id;
-        // Clean up jobs posted by this company (full chain)
         await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
         await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
         await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT I.interview_id FROM INTERVIEW I JOIN APPLICATION A ON I.application_id = A.application_id JOIN JOB_POSTING J ON A.job_id = J.job_id WHERE J.company_id = :id)`, { id });
-        // Interviews conducted by this company interviewers
         await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
         await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
         await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id IN (SELECT interviewer_id FROM INTERVIEWER WHERE company_id = :id))`, { id });
@@ -150,9 +161,7 @@ app.get('/api/jobs', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        const result = await conn.execute(
-            `SELECT * FROM VW_OPEN_JOBS ORDER BY posted_date DESC`
-        );
+        const result = await conn.execute(`SELECT * FROM VW_OPEN_JOBS ORDER BY posted_date DESC`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -179,7 +188,6 @@ app.get('/api/jobs/all', async (req, res) => {
     }
 });
 
-// POST add new job posting
 app.post('/api/jobs', async (req, res) => {
     let conn;
     const { job_id, title, department, emp_type, posted_date,
@@ -188,17 +196,15 @@ app.post('/api/jobs', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO JOB_POSTING VALUES (
-                :jid, :title, :dept, :etype,
-                TO_DATE(:pdate,'YYYY-MM-DD'), TO_DATE(:cdate,'YYYY-MM-DD'),
-                :status, :desc, :salary, :skills, :cid
-             )`,
-            {
-                jid: job_id, title, dept: department, etype: emp_type,
-                pdate: posted_date, cdate: closing_date,
-                status, desc: description, salary: salary_range,
-                skills: required_skills, cid: company_id
-            }
+            `INSERT INTO JOB_POSTING (job_id, title, department, emp_type, posted_date,
+             closing_date, status, description, salary_range, required_skills, company_id)
+             VALUES (:p1, :p2, :p3, :p4,
+             TO_DATE(:p5,'YYYY-MM-DD'), TO_DATE(:p6,'YYYY-MM-DD'),
+             :p7, :p8, :p9, :p10, :p11)`,
+            { p1: job_id, p2: title, p3: department||null, p4: emp_type||null,
+              p5: posted_date, p6: closing_date,
+              p7: status||'Open', p8: description||null, p9: salary_range||null,
+              p10: required_skills||null, p11: company_id }
         );
         await conn.commit();
         res.status(201).json({ message: 'Job posting added successfully' });
@@ -209,7 +215,6 @@ app.post('/api/jobs', async (req, res) => {
     }
 });
 
-// DELETE job posting — cleans up full child chain first
 app.delete('/api/jobs/:id', async (req, res) => {
     let conn;
     try {
@@ -290,31 +295,27 @@ app.put('/api/applications/:id/status', async (req, res) => {
 
 
 // ============================================================
-// INTERVIEWS
+// INTERVIEWS — supertype GET
 // ============================================================
 
-// FIX: removed broken JOIN COMPANY CO ON I.company_id
-// company reached via INTERVIEWER → COMPANY chain
 app.get('/api/interviews', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
         const result = await conn.execute(
-            `SELECT
-                I.interview_id,
-                I.interview_type,
-                C.first_name || ' ' || C.last_name   AS candidate_name,
-                IV.name                               AS interviewer_name,
-                IV.job_title                          AS interviewer_title,
-                CO.name                               AS company_name,
-                J.title                               AS job_title,
-                A.status                              AS application_status
+            `SELECT I.interview_id, I.interview_type,
+                C.first_name || ' ' || C.last_name AS candidate_name,
+                IV.name                             AS interviewer_name,
+                IV.job_title                        AS interviewer_title,
+                CO.name                             AS company_name,
+                J.title                             AS job_title,
+                A.status                            AS application_status
              FROM INTERVIEW I
-             JOIN APPLICATION  A   ON I.application_id = A.application_id
-             JOIN CANDIDATE    C   ON A.candidate_id   = C.candidate_id
-             JOIN INTERVIEWER  IV  ON I.interviewer_id = IV.interviewer_id
-             JOIN COMPANY      CO  ON IV.company_id    = CO.company_id
-             JOIN JOB_POSTING  J   ON A.job_id         = J.job_id
+             JOIN APPLICATION A  ON I.application_id = A.application_id
+             JOIN CANDIDATE   C  ON A.candidate_id   = C.candidate_id
+             JOIN INTERVIEWER IV ON I.interviewer_id = IV.interviewer_id
+             JOIN COMPANY     CO ON IV.company_id    = CO.company_id
+             JOIN JOB_POSTING J  ON A.job_id         = J.job_id
              ORDER BY I.interview_id`
         );
         res.json(result.rows);
@@ -325,45 +326,71 @@ app.get('/api/interviews', async (req, res) => {
     }
 });
 
-
-// ============================================================
-// DASHBOARD STATS
-// ============================================================
-
-app.get('/api/stats', async (req, res) => {
+// POST interview supertype
+app.post('/api/interviews', async (req, res) => {
     let conn;
+    const { interview_id, application_id, interviewer_id, interview_type } = req.body;
     try {
         conn = await db.getConnection();
-        const candidates   = await conn.execute(`SELECT COUNT(*) AS total FROM CANDIDATE`);
-        const openJobs     = await conn.execute(`SELECT COUNT(*) AS total FROM JOB_POSTING WHERE status = 'Open'`);
-        const applications = await conn.execute(`SELECT COUNT(*) AS total FROM APPLICATION`);
-        const interviews   = await conn.execute(`SELECT COUNT(*) AS total FROM INTERVIEW`);
-
-        res.json({
-            total_candidates:    candidates.rows[0].TOTAL,
-            open_jobs:           openJobs.rows[0].TOTAL,
-            total_applications:  applications.rows[0].TOTAL,
-            total_interviews:    interviews.rows[0].TOTAL
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        if (conn) await conn.close();
-    }
+        await conn.execute(
+            `INSERT INTO INTERVIEW (interview_id, interview_type, application_id, interviewer_id)
+             VALUES (:p1, :p2, :p3, :p4)`,
+            { p1: interview_id, p2: interview_type, p3: application_id, p4: interviewer_id }
+        );
+        await conn.commit();
+        res.status(201).json({ message: 'Interview created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
 });
 
+// POST phone screen subtype
+app.post('/api/interviews/phone', async (req, res) => {
+    let conn;
+    const { interview_id, duration_mins } = req.body;
+    try {
+        conn = await db.getConnection();
+        await conn.execute(
+            `INSERT INTO PHONE_SCREEN (interview_id, duration_mins) VALUES (:p1, :p2)`,
+            { p1: interview_id, p2: duration_mins||null }
+        );
+        await conn.commit();
+        res.status(201).json({ message: 'Phone screen created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
 
-// ============================================================
-// START SERVER
-// ============================================================
-async function startServer() {
-    await db.initialize();
-    app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
-    });
-}
+// POST tech interview subtype
+app.post('/api/interviews/tech', async (req, res) => {
+    let conn;
+    const { interview_id, platform } = req.body;
+    try {
+        conn = await db.getConnection();
+        await conn.execute(
+            `INSERT INTO TECH_INTERVIEW (interview_id, platform) VALUES (:p1, :p2)`,
+            { p1: interview_id, p2: platform||null }
+        );
+        await conn.commit();
+        res.status(201).json({ message: 'Tech interview created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
 
-startServer();
+// POST panel interview subtype
+app.post('/api/interviews/panel', async (req, res) => {
+    let conn;
+    const { interview_id, panel_size } = req.body;
+    try {
+        conn = await db.getConnection();
+        await conn.execute(
+            `INSERT INTO PANEL_INTERVIEW (interview_id, panel_size) VALUES (:p1, :p2)`,
+            { p1: interview_id, p2: panel_size||null }
+        );
+        await conn.commit();
+        res.status(201).json({ message: 'Panel interview created' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
 
 // ============================================================
 // INTERVIEWERS
@@ -391,8 +418,9 @@ app.post('/api/interviewers', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO INTERVIEWER VALUES (:iid,:name,:email,:dept,:jt,:cid)`,
-            { iid: interviewer_id, name, email, dept: department, jt: job_title, cid: company_id }
+            `INSERT INTO INTERVIEWER (interviewer_id, name, email, department, job_title, company_id)
+             VALUES (:p1, :p2, :p3, :p4, :p5, :p6)`,
+            { p1: interviewer_id, p2: name, p3: email, p4: department||null, p5: job_title||null, p6: company_id }
         );
         await conn.commit();
         res.status(201).json({ message: 'Interviewer added successfully' });
@@ -405,7 +433,6 @@ app.delete('/api/interviewers/:id', async (req, res) => {
     try {
         conn = await db.getConnection();
         const id = req.params.id;
-        // Delete interview subtypes then interviews conducted by this interviewer
         await conn.execute(`DELETE FROM PHONE_SCREEN WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
         await conn.execute(`DELETE FROM TECH_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
         await conn.execute(`DELETE FROM PANEL_INTERVIEW WHERE interview_id IN (SELECT interview_id FROM INTERVIEW WHERE interviewer_id = :id)`, { id });
@@ -445,8 +472,9 @@ app.post('/api/resumes', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO RESUME VALUES (:rid,:furl,:summ,:vlabel,SYSDATE,:cid)`,
-            { rid: resume_id, furl: file_url, summ: summary, vlabel: version_label, cid: candidate_id }
+            `INSERT INTO RESUME (resume_id, file_url, summary, version_label, upload_date, candidate_id)
+             VALUES (:p1, :p2, :p3, :p4, SYSDATE, :p5)`,
+            { p1: resume_id, p2: file_url||null, p3: summary||null, p4: version_label||null, p5: candidate_id }
         );
         await conn.commit();
         res.status(201).json({ message: 'Resume added successfully' });
@@ -458,16 +486,8 @@ app.delete('/api/resumes/:id', async (req, res) => {
     let conn;
     try {
         conn = await db.getConnection();
-        // First detach resume from any applications referencing it
-        await conn.execute(
-            `UPDATE APPLICATION SET resume_id = NULL WHERE resume_id = :id`,
-            { id: req.params.id }
-        );
-        // Now safe to delete
-        await conn.execute(
-            `DELETE FROM RESUME WHERE resume_id = :id`,
-            { id: req.params.id }
-        );
+        await conn.execute(`UPDATE APPLICATION SET resume_id = NULL WHERE resume_id = :id`, { id: req.params.id });
+        await conn.execute(`DELETE FROM RESUME WHERE resume_id = :id`, { id: req.params.id });
         await conn.commit();
         res.json({ message: 'Resume deleted successfully' });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -489,9 +509,9 @@ app.get('/api/offers', async (req, res) => {
                     C.first_name || ' ' || C.last_name AS candidate_name,
                     J.title AS job_title
              FROM OFFER O
-             JOIN APPLICATION A  ON O.application_id = A.application_id
-             JOIN CANDIDATE   C  ON A.candidate_id   = C.candidate_id
-             JOIN JOB_POSTING J  ON A.job_id         = J.job_id
+             JOIN APPLICATION A ON O.application_id = A.application_id
+             JOIN CANDIDATE   C ON A.candidate_id   = C.candidate_id
+             JOIN JOB_POSTING J ON A.job_id         = J.job_id
              ORDER BY O.offer_id`
         );
         res.json(result.rows);
@@ -505,12 +525,10 @@ app.post('/api/offers', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO OFFER VALUES (
-                :oid, TO_DATE(:odate,'YYYY-MM-DD'), :salary,
-                :benefits, TO_DATE(:sdate,'YYYY-MM-DD'), :status, :appid
-             )`,
-            { oid: offer_id, odate: offer_date, salary: base_salary,
-              benefits: benefits_summary, sdate: start_date, status, appid: application_id }
+            `INSERT INTO OFFER (offer_id, offer_date, base_salary, benefits_summary, start_date, status, application_id)
+             VALUES (:p1, TO_DATE(:p2,'YYYY-MM-DD'), :p3, :p4, TO_DATE(:p5,'YYYY-MM-DD'), :p6, :p7)`,
+            { p1: offer_id, p2: offer_date, p3: base_salary,
+              p4: benefits_summary||null, p5: start_date, p6: status, p7: application_id }
         );
         await conn.commit();
         res.status(201).json({ message: 'Offer added successfully' });
@@ -524,8 +542,8 @@ app.put('/api/offers/:id/status', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `UPDATE OFFER SET status = :status WHERE offer_id = :id`,
-            { status, id: req.params.id }
+            `UPDATE OFFER SET status = :p1 WHERE offer_id = :p2`,
+            { p1: status, p2: req.params.id }
         );
         await conn.commit();
         res.json({ message: 'Offer status updated' });
@@ -548,9 +566,9 @@ app.get('/api/decisions', async (req, res) => {
                     C.first_name || ' ' || C.last_name AS candidate_name,
                     J.title AS job_title
              FROM HIRING_DECISION HD
-             JOIN APPLICATION A  ON HD.application_id = A.application_id
-             JOIN CANDIDATE   C  ON A.candidate_id    = C.candidate_id
-             JOIN JOB_POSTING J  ON A.job_id          = J.job_id
+             JOIN APPLICATION A ON HD.application_id = A.application_id
+             JOIN CANDIDATE   C ON A.candidate_id    = C.candidate_id
+             JOIN JOB_POSTING J ON A.job_id          = J.job_id
              ORDER BY HD.decision_id`
         );
         res.json(result.rows);
@@ -564,12 +582,10 @@ app.post('/api/decisions', async (req, res) => {
     try {
         conn = await db.getConnection();
         await conn.execute(
-            `INSERT INTO HIRING_DECISION VALUES (
-                :did, TO_DATE(:ddate,'YYYY-MM-DD'),
-                :outcome, :rationale, :status, :appid, :oid
-             )`,
-            { did: decision_id, ddate: decision_date, outcome,
-              rationale, status, appid: application_id, oid: offer_id }
+            `INSERT INTO HIRING_DECISION (decision_id, decision_date, outcome, rationale, status, application_id, offer_id)
+             VALUES (:p1, TO_DATE(:p2,'YYYY-MM-DD'), :p3, :p4, :p5, :p6, :p7)`,
+            { p1: decision_id, p2: decision_date, p3: outcome,
+              p4: rationale||null, p5: status, p6: application_id, p7: offer_id }
         );
         await conn.commit();
         res.status(201).json({ message: 'Hiring decision added successfully' });
@@ -577,70 +593,375 @@ app.post('/api/decisions', async (req, res) => {
     finally { if (conn) await conn.close(); }
 });
 
+
 // ============================================================
-// INTERVIEW — supertype + subtype insert endpoints
+// DASHBOARD STATS
 // ============================================================
 
-// POST interview supertype
-app.post('/api/interviews', async (req, res) => {
+app.get('/api/stats', async (req, res) => {
     let conn;
-    const { interview_id, application_id, interviewer_id, interview_type } = req.body;
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `INSERT INTO INTERVIEW VALUES (:iid, :type, :appid, :ivid)`,
-            { iid: interview_id, type: interview_type, appid: application_id, ivid: interviewer_id }
+        const candidates   = await conn.execute(`SELECT COUNT(*) AS total FROM CANDIDATE`);
+        const openJobs     = await conn.execute(`SELECT COUNT(*) AS total FROM JOB_POSTING WHERE status = 'Open'`);
+        const applications = await conn.execute(`SELECT COUNT(*) AS total FROM APPLICATION`);
+        const interviews   = await conn.execute(`SELECT COUNT(*) AS total FROM INTERVIEW`);
+        res.json({
+            total_candidates:   candidates.rows[0].TOTAL,
+            open_jobs:          openJobs.rows[0].TOTAL,
+            total_applications: applications.rows[0].TOTAL,
+            total_interviews:   interviews.rows[0].TOTAL
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (conn) await conn.close();
+    }
+});
+
+
+// ============================================================
+// USERS — Admin only
+// ============================================================
+
+app.get('/api/users', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT user_id, name, email, role, entity_id, created_at
+             FROM USERS ORDER BY user_id`
         );
-        await conn.commit();
-        res.status(201).json({ message: 'Interview created' });
+        res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
     finally { if (conn) await conn.close(); }
 });
 
-// POST phone screen subtype
-app.post('/api/interviews/phone', async (req, res) => {
+
+// ============================================================
+// AUTH — LOGIN + REGISTER
+// ============================================================
+
+app.post('/api/auth/login', async (req, res) => {
     let conn;
-    const { interview_id, duration_mins } = req.body;
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `INSERT INTO PHONE_SCREEN VALUES (:iid, :dur)`,
-            { iid: interview_id, dur: duration_mins || null }
+        const result = await conn.execute(
+            `SELECT user_id, name, email, role, entity_id
+             FROM USERS WHERE email = :p1 AND password = :p2`,
+            { p1: email, p2: password }
         );
-        await conn.commit();
-        res.status(201).json({ message: 'Phone screen created' });
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        const u = result.rows[0];
+        res.json({
+            user_id:   u.USER_ID,
+            name:      u.NAME,
+            email:     u.EMAIL,
+            role:      u.ROLE,
+            entity_id: u.ENTITY_ID
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
     finally { if (conn) await conn.close(); }
 });
 
-// POST tech interview subtype
-app.post('/api/interviews/tech', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     let conn;
-    const { interview_id, platform } = req.body;
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password || !role) {
+        return res.status(400).json({ error: 'Name, email, password and role are required' });
+    }
+    if (!['COMPANY','INTERVIEWER','CANDIDATE'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+    }
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `INSERT INTO TECH_INTERVIEW VALUES (:iid, :plat)`,
-            { iid: interview_id, plat: platform || null }
+
+        const check = await conn.execute(
+            `SELECT COUNT(*) AS cnt FROM USERS WHERE email = :p1`, { p1: email }
         );
+        if (check.rows[0].CNT > 0) {
+            return res.status(409).json({ error: 'Email already registered' });
+        }
+
+        const idRes = await conn.execute(`SELECT NVL(MAX(user_id),0)+1 AS nid FROM USERS`);
+        const user_id = idRes.rows[0].NID;
+        let entity_id = null;
+
+        if (role === 'CANDIDATE') {
+            const cidRes = await conn.execute(`SELECT NVL(MAX(candidate_id),0)+1 AS nid FROM CANDIDATE`);
+            entity_id = cidRes.rows[0].NID;
+            const { phone, location, skills } = req.body;
+            const fname = name.split(' ')[0];
+            const lname = name.split(' ').slice(1).join(' ') || '-';
+            await conn.execute(
+                `INSERT INTO CANDIDATE (candidate_id, first_name, last_name, email, phone, location, reg_date, skills)
+                 VALUES (:p1, :p2, :p3, :p4, :p5, :p6, SYSDATE, :p7)`,
+                { p1: entity_id, p2: fname, p3: lname,
+                  p4: email, p5: phone||null, p6: location||null, p7: skills||null }
+            );
+        }
+
+        if (role === 'COMPANY') {
+            const coRes = await conn.execute(`SELECT NVL(MAX(company_id),0)+1 AS nid FROM COMPANY`);
+            entity_id = coRes.rows[0].NID;
+            const { location, website, industry } = req.body;
+            await conn.execute(
+                `INSERT INTO COMPANY (company_id, name, location, website, industry)
+                 VALUES (:p1, :p2, :p3, :p4, :p5)`,
+                { p1: entity_id, p2: name, p3: location||null, p4: website||null, p5: industry||null }
+            );
+        }
+
+        if (role === 'INTERVIEWER') {
+            const ivRes = await conn.execute(`SELECT NVL(MAX(interviewer_id),0)+1 AS nid FROM INTERVIEWER`);
+            entity_id = ivRes.rows[0].NID;
+            const { department, job_title, company_id } = req.body;
+            if (!company_id) return res.status(400).json({ error: 'Company ID required for interviewer signup' });
+            await conn.execute(
+                `INSERT INTO INTERVIEWER (interviewer_id, name, email, department, job_title, company_id)
+                 VALUES (:p1, :p2, :p3, :p4, :p5, :p6)`,
+                { p1: entity_id, p2: name, p3: email, p4: department||null, p5: job_title||null, p6: company_id }
+            );
+        }
+
+        await conn.execute(
+            `INSERT INTO USERS (user_id, name, email, password, role, entity_id, created_at)
+             VALUES (:p1, :p2, :p3, :p4, :p5, :p6, SYSDATE)`,
+            { p1: user_id, p2: name, p3: email, p4: password, p5: role, p6: entity_id }
+        );
+
         await conn.commit();
-        res.status(201).json({ message: 'Tech interview created' });
+        res.status(201).json({ message: 'Account created successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (conn) await conn.close();
+    }
+});
+
+
+// ============================================================
+// ROLE-SPECIFIC ENDPOINTS — /api/my/...
+// ============================================================
+
+app.get('/api/my/applications', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT A.application_id, A.applied_date, A.status AS application_status,
+                    A.days_in_pipeline, A.cover_letter,
+                    J.title AS job_title, CO.name AS company_name
+             FROM APPLICATION A
+             JOIN JOB_POSTING J ON A.job_id = J.job_id
+             JOIN COMPANY CO ON J.company_id = CO.company_id
+             WHERE A.candidate_id = :p1
+             ORDER BY A.applied_date DESC`,
+            { p1: req.query.candidate_id }
+        );
+        res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
     finally { if (conn) await conn.close(); }
 });
 
-// POST panel interview subtype
-app.post('/api/interviews/panel', async (req, res) => {
+app.get('/api/my/resumes', async (req, res) => {
     let conn;
-    const { interview_id, panel_size } = req.body;
     try {
         conn = await db.getConnection();
-        await conn.execute(
-            `INSERT INTO PANEL_INTERVIEW VALUES (:iid, :ps)`,
-            { iid: interview_id, ps: panel_size || null }
+        const result = await conn.execute(
+            `SELECT * FROM RESUME WHERE candidate_id = :p1 ORDER BY upload_date DESC`,
+            { p1: req.query.candidate_id }
         );
-        await conn.commit();
-        res.status(201).json({ message: 'Panel interview created' });
+        res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
     finally { if (conn) await conn.close(); }
 });
+
+app.get('/api/my/interviews', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT I.interview_id, I.interview_type,
+                    IV.name AS interviewer_name, J.title AS job_title,
+                    A.status AS application_status
+             FROM INTERVIEW I
+             JOIN APPLICATION A  ON I.application_id = A.application_id
+             JOIN JOB_POSTING J  ON A.job_id = J.job_id
+             JOIN INTERVIEWER IV ON I.interviewer_id = IV.interviewer_id
+             WHERE A.candidate_id = :p1`,
+            { p1: req.query.candidate_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/offers', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT O.offer_id, O.base_salary, O.status, O.offer_date,
+                    O.start_date, O.benefits_summary, J.title AS job_title
+             FROM OFFER O
+             JOIN APPLICATION A ON O.application_id = A.application_id
+             JOIN JOB_POSTING J ON A.job_id = J.job_id
+             WHERE A.candidate_id = :p1`,
+            { p1: req.query.candidate_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/jobs', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT * FROM JOB_POSTING WHERE company_id = :p1 ORDER BY posted_date DESC`,
+            { p1: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/company-applications', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT A.application_id, A.applied_date, A.status AS application_status,
+                    C.first_name || ' ' || C.last_name AS candidate_name,
+                    J.title AS job_title
+             FROM APPLICATION A
+             JOIN CANDIDATE   C ON A.candidate_id = C.candidate_id
+             JOIN JOB_POSTING J ON A.job_id = J.job_id
+             WHERE J.company_id = :p1
+             ORDER BY A.applied_date DESC`,
+            { p1: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/interviewers', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT * FROM INTERVIEWER WHERE company_id = :p1`,
+            { p1: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/company-offers', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT O.offer_id, O.base_salary, O.status, O.offer_date,
+                    C.first_name || ' ' || C.last_name AS candidate_name,
+                    J.title AS job_title
+             FROM OFFER O
+             JOIN APPLICATION A ON O.application_id = A.application_id
+             JOIN CANDIDATE   C ON A.candidate_id = C.candidate_id
+             JOIN JOB_POSTING J ON A.job_id = J.job_id
+             WHERE J.company_id = :p1`,
+            { p1: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+app.get('/api/my/interviewer-interviews', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT I.interview_id, I.interview_type,
+                    C.first_name || ' ' || C.last_name AS candidate_name,
+                    J.title AS job_title,
+                    A.status AS application_status
+             FROM INTERVIEW I
+             JOIN APPLICATION A ON I.application_id = A.application_id
+             JOIN CANDIDATE   C ON A.candidate_id = C.candidate_id
+             JOIN JOB_POSTING J ON A.job_id = J.job_id
+             WHERE I.interviewer_id = :p1`,
+            { p1: req.query.interviewer_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+
+// COMPANY — interviews for jobs posted by this company
+app.get('/api/my/company-interviews', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT I.interview_id, I.interview_type,
+                    C.first_name || ' ' || C.last_name AS candidate_name,
+                    IV.name AS interviewer_name,
+                    J.title AS job_title,
+                    A.status AS application_status
+             FROM INTERVIEW I
+             JOIN APPLICATION A  ON I.application_id = A.application_id
+             JOIN CANDIDATE   C  ON A.candidate_id   = C.candidate_id
+             JOIN INTERVIEWER IV ON I.interviewer_id  = IV.interviewer_id
+             JOIN JOB_POSTING J  ON A.job_id          = J.job_id
+             WHERE J.company_id = :cid`,
+            { cid: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+// COMPANY — hiring decisions for jobs posted by this company
+app.get('/api/my/company-decisions', async (req, res) => {
+    let conn;
+    try {
+        conn = await db.getConnection();
+        const result = await conn.execute(
+            `SELECT HD.decision_id, HD.decision_date, HD.outcome,
+                    HD.rationale, HD.status, HD.application_id, HD.offer_id,
+                    C.first_name || ' ' || C.last_name AS candidate_name,
+                    J.title AS job_title
+             FROM HIRING_DECISION HD
+             JOIN APPLICATION A  ON HD.application_id = A.application_id
+             JOIN CANDIDATE   C  ON A.candidate_id    = C.candidate_id
+             JOIN JOB_POSTING J  ON A.job_id          = J.job_id
+             WHERE J.company_id = :cid`,
+            { cid: req.query.company_id }
+        );
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { if (conn) await conn.close(); }
+});
+
+
+// ============================================================
+// START SERVER
+// ============================================================
+async function startServer() {
+    await db.initialize();
+    app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+    });
+}
+
+startServer();

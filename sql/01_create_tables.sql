@@ -197,6 +197,24 @@ CREATE TABLE HIRING_DECISION (
         FOREIGN KEY (offer_id) REFERENCES OFFER(offer_id)
 );
 
+-- ------------------------------------------------------------
+-- TABLE 13: USERS
+-- Auth table — links each login to its entity row
+-- role IN ('ADMIN','COMPANY','INTERVIEWER','CANDIDATE')
+-- entity_id references the matching row in CANDIDATE / COMPANY / INTERVIEWER
+-- ------------------------------------------------------------
+CREATE TABLE USERS (
+    user_id     NUMBER          PRIMARY KEY,
+    name        VARCHAR2(100)   NOT NULL,
+    email       VARCHAR2(100)   UNIQUE NOT NULL,
+    password    VARCHAR2(200)   NOT NULL,
+    role        VARCHAR2(20)    NOT NULL,
+    entity_id   NUMBER,
+    created_at  DATE,
+    CONSTRAINT chk_users_role
+        CHECK (role IN ('ADMIN','COMPANY','INTERVIEWER','CANDIDATE'))
+);
+
 -- ============================================================
 -- VERIFY: SELECT table_name FROM user_tables ORDER BY table_name;
 -- ============================================================

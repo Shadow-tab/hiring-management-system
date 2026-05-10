@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Candidate Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 id="welcome-msg">Welcome</h1>
+            <p>Your hiring pipeline at a glance</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">My Applications</div>
+            <div class="stat-value" id="stat-apps">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">My Resumes</div>
+            <div class="stat-value" id="stat-resumes">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Interviews</div>
+            <div class="stat-value" id="stat-interviews">—</div>
+            <div class="stat-divider"></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Offers</div>
+            <div class="stat-value" id="stat-offers">—</div>
+            <div class="stat-divider"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>My Applications</h2>
+            <a href="my-applications.html" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div id="apps-table"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['CANDIDATE']);
+    if (user) {
+        document.getElementById('welcome-msg').textContent = `Welcome, ${user.name}`;
+        buildSidebar('dashboard-candidate.html');
+
+        async function loadDashboard() {
+            const apps = await get(`/api/my/applications?candidate_id=${user.entity_id}`);
+            const resumes = await get(`/api/my/resumes?candidate_id=${user.entity_id}`);
+            const interviews = await get(`/api/my/interviews?candidate_id=${user.entity_id}`);
+            const offers = await get(`/api/my/offers?candidate_id=${user.entity_id}`);
+
+            document.getElementById('stat-apps').textContent       = apps?.length ?? 0;
+            document.getElementById('stat-resumes').textContent    = resumes?.length ?? 0;
+            document.getElementById('stat-interviews').textContent = interviews?.length ?? 0;
+            document.getElementById('stat-offers').textContent     = offers?.length ?? 0;
+
+            const el = document.getElementById('apps-table');
+            if (!apps || apps.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="empty-title">No applications yet</div><div class="empty-desc">Browse jobs and apply to get started.</div></div>';
+                return;
+            }
+            const rows = apps.slice(0,5).map(a => `<tr>
+                <td>${a.JOB_TITLE ?? a.job_title}</td>
+                <td>${a.COMPANY_NAME ?? a.company_name}</td>
+                <td>${a.APPLIED_DATE ? new Date(a.APPLIED_DATE??a.applied_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                <td>${badge(a.APPLICATION_STATUS ?? a.application_status)}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr><th>Job Title</th><th>Company</th><th>Applied</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        loadDashboard();
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users — Hiring MS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-text">Hiring MS</div>
+        <div class="sidebar-logo-sub">Admin Portal</div>
+    </div>
+    <nav class="sidebar-nav"></nav>
+    <div class="sidebar-footer"></div>
+</aside>
+<main class="main">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Users</h1>
+            <p>All registered system users</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h2>All Users</h2></div>
+        <div id="table-body"><div class="loading">Fetching data</div></div>
+    </div>
+</main>
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script>
+    const user = requireAuth(['ADMIN']);
+    if (user) {
+        buildSidebar('users.html');
+        async function load() {
+            const data = await get('/api/users');
+            const el = document.getElementById('table-body');
+            if (!data || data.length === 0) {
+                el.innerHTML = '<div class="empty"><div class="empty-title">No users found</div></div>';
+                return;
+            }
+            const rows = data.map(u => `<tr>
+                <td>${u.USER_ID ?? u.user_id}</td>
+                <td>${u.NAME ?? u.name}</td>
+                <td>${u.EMAIL ?? u.email}</td>
+                <td>${badge(u.ROLE ?? u.role)}</td>
+                <td>${u.ENTITY_ID ?? u.entity_id ?? '—'}</td>
+                <td>${new Date(u.CREATED_AT ?? u.created_at).toLocaleDateString('en-GB')}</td>
+            </tr>`).join('');
+            el.innerHTML = `<table><thead><tr>
+                <th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Entity ID</th><th>Created</th>
+            </tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        load();
+    }
+</script>
+</body>
+</html>
